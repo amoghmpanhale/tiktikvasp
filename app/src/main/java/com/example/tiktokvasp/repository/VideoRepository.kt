@@ -65,4 +65,35 @@ class VideoRepository(private val context: Context) {
 
         return@withContext videos
     }
+
+    /**
+     * Increment the watch count for a video
+     */
+    suspend fun incrementVideoWatchCount(videoId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Here you would normally update a database or backend
+            // For local videos, we could maintain a local database of watch counts
+            // For this implementation, we'll just log the increment
+            Log.d("VideoRepository", "Incrementing watch count for video: $videoId")
+            return@withContext true
+        } catch (e: Exception) {
+            Log.e("VideoRepository", "Error incrementing watch count", e)
+            return@withContext false
+        }
+    }
+
+    /**
+     * Get a specific video by ID
+     */
+    suspend fun getVideoById(videoId: String): Video? = withContext(Dispatchers.IO) {
+        try {
+            // In a real app, you would query your database or backend for the specific video
+            // For this implementation, we'll search through all local videos
+            val allVideos = getLocalVideos()
+            return@withContext allVideos.find { it.id == videoId }
+        } catch (e: Exception) {
+            Log.e("VideoRepository", "Error getting video by ID", e)
+            return@withContext null
+        }
+    }
 }

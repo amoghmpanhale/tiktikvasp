@@ -28,6 +28,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isPlaying = MutableStateFlow(true)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
     private var videoViewStartTime = 0L
     private var currentVideoId: String? = null
 
@@ -75,9 +78,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun onPageSelected(position: Int) {
+        if (position != _currentVideoIndex.value) {
+            // If the page was changed programmatically (e.g. by ViewPager2),
+            // track it as a swipe event
+            val direction = if (position > _currentVideoIndex.value)
+                SwipeDirection.UP else SwipeDirection.DOWN
+
+            trackSwipeEvent(direction)
+            endVideoViewTracking()
+            _currentVideoIndex.value = position
+            startVideoViewTracking(_videos.value[position].id)
+        }
+    }
+
     private fun startVideoViewTracking(videoId: String) {
         videoViewStartTime = System.currentTimeMillis()
         currentVideoId = videoId
+        _isPlaying.value = true
     }
 
     private fun endVideoViewTracking() {
@@ -114,6 +132,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             dataExporter.exportSwipeEvents(swipeEvents)
             dataExporter.exportViewEvents(viewEvents)
         }
+    }
+
+    fun toggleVideoPlayback() {
+        _isPlaying.value = !_isPlaying.value
+    }
+
+    fun likeCurrentVideo() {
+        // Implementation for liking the current video
+        currentVideoId?.let { videoId ->
+            // Add like functionality here
+        }
+    }
+
+    fun incrementVideoWatchCount(videoId: String) {
+        viewModelScope.launch {
+            repository.incrementVideoWatchCount(videoId)
+        }
+    }
+
+    fun likeVideo(videoId: String) {
+        // Implementation for liking a video
+    }
+
+    fun openComments(videoId: String) {
+        // Implementation for opening comments
+    }
+
+    fun shareVideo(videoId: String) {
+        // Implementation for sharing a video
+    }
+
+    fun openUserProfile(videoId: String) {
+        // Implementation for opening user profile
     }
 
     override fun onCleared() {
