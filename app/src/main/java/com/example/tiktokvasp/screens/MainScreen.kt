@@ -22,9 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.viewpager2.widget.ViewPager2
-import com.example.tiktokvasp.adapters.VideoPageAdapter
+import com.example.tiktokvasp.adapters.VideoAdapter
 import com.example.tiktokvasp.components.TikTokBottomBar
-import com.example.tiktokvasp.components.TikTokOverlay
 import com.example.tiktokvasp.viewmodel.MainViewModel
 import com.example.tiktokvasp.util.TikTokSwipeDetector
 
@@ -42,7 +41,7 @@ fun MainScreen(
 
     // Create the adapter when videos are loaded
     val videoAdapter = remember(videos) {
-        VideoPageAdapter(context, videos, viewModel)
+        VideoAdapter(context, videos, viewModel)
     }
 
     Scaffold(
@@ -100,7 +99,7 @@ fun MainScreen(
                         modifier = Modifier.fillMaxSize(),
                         update = { pager ->
                             // Update the adapter if videos change
-                            (pager.adapter as? VideoPageAdapter)?.updateVideos(videos)
+                            (pager.adapter as? VideoAdapter)?.updateVideos(videos)
 
                             // Update current position if it changes in the viewModel
                             if (pager.currentItem != currentVideoIndex) {

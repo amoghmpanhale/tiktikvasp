@@ -59,9 +59,16 @@ dependencies {
 
     implementation "androidx.compose.material:material-icons-extended:1.6.1"
 
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+
+    // CircleImageView for rounded profile images
+    implementation 'de.hdodenhof:circleimageview:3.1.0'
+
     // ViewModel and LiveData
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
     implementation libs.androidx.datastore.core.android
+    implementation libs.androidx.recyclerview
+    implementation libs.androidx.viewpager2
 
     // Testing
     testImplementation libs.junit

@@ -19,11 +19,11 @@ import com.example.tiktokvasp.viewmodel.MainViewModel
 /**
  * Adapter for vertical swiping through videos in a ViewPager2
  */
-class VideoPageAdapter(
+class VideoAdapter(
     private val context: Context,
     private var videos: List<Video>,
     private val viewModel: MainViewModel
-) : RecyclerView.Adapter<VideoPageAdapter.VideoViewHolder>() {
+) : RecyclerView.Adapter<VideoAdapter.VideoViewHolder>() {
 
     private val viewHolders = mutableMapOf<Int, VideoViewHolder>()
     private var currentPosition = 0
@@ -116,7 +116,7 @@ class VideoPageAdapter(
 
         fun bind(video: Video) {
             videoId = video.id
-            videoUri = Uri.parse(video.uri)
+            videoUri = Uri.parse(video.uri.toString())
             titleTextView.text = "@${video.title}"
 
             // Initialize player if needed

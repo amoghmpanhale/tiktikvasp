@@ -58,7 +58,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@android:drawable/ic_lock_silent_mode_off"
-                    app:tint="@android:color/white" />
+                    android:tint="@android:color/white" />
 
                 <TextView
                     android:id="@+id/music_text"
@@ -107,7 +107,7 @@
                     android:background="@android:color/holo_red_light"
                     android:padding="4dp"
                     android:src="@android:drawable/ic_input_add"
-                    app:tint="@android:color/white" />
+                    android:tint="@android:color/white" />
             </FrameLayout>
 
             <!-- Like button -->
@@ -124,7 +124,7 @@
                     android:layout_width="35dp"
                     android:layout_height="35dp"
                     android:src="@android:drawable/star_big_off"
-                    app:tint="@android:color/white" />
+                    android:tint="@android:color/white" />
 
                 <TextView
                     android:id="@+id/like_count"
@@ -150,7 +150,7 @@
                     android:layout_width="35dp"
                     android:layout_height="35dp"
                     android:src="@android:drawable/sym_action_chat"
-                    app:tint="@android:color/white" />
+                    android:tint="@android:color/white" />
 
                 <TextView
                     android:id="@+id/comment_count"
@@ -175,7 +175,7 @@
                     android:layout_width="35dp"
                     android:layout_height="35dp"
                     android:src="@android:drawable/ic_menu_share"
-                    app:tint="@android:color/white" />
+                    android:tint="@android:color/white" />
 
                 <TextView
                     android:id="@+id/share_text"
@@ -196,7 +196,7 @@
             android:layout_centerInParent="true"
             android:alpha="0"
             android:src="@android:drawable/ic_media_play"
-            app:tint="@android:color/white" />
+            android:tint="@android:color/white" />
 
         <!-- Loading progress -->
         <ProgressBar
@@ -215,6 +215,6 @@
             android:layout_centerInParent="true"
             android:alpha="0"
             android:src="@android:drawable/btn_star_big_on"
-            app:tint="@android:color/holo_red_light" />
+            android:tint="@android:color/holo_red_light" />
     </RelativeLayout>
 </FrameLayout>
