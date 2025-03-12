@@ -7,11 +7,13 @@ import com.example.tiktokvasp.model.Video
 import com.example.tiktokvasp.repository.VideoRepository
 import com.example.tiktokvasp.tracking.DataExporter
 import com.example.tiktokvasp.tracking.SwipeDirection
+import com.example.tiktokvasp.tracking.SwipeEvent
 import com.example.tiktokvasp.tracking.UserBehaviorTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -30,6 +32,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isPlaying = MutableStateFlow(true)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    // Detailed swipe tracking stats
+    private val _totalTrackedSwipes = MutableStateFlow(0)
+    val totalTrackedSwipes: StateFlow<Int> = _totalTrackedSwipes.asStateFlow()
+
+    private val _avgSwipeVelocity = MutableStateFlow(0f)
+    val avgSwipeVelocity: StateFlow<Float> = _avgSwipeVelocity.asStateFlow()
 
     private var videoViewStartTime = 0L
     private var currentVideoId: String? = null
@@ -51,17 +60,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Expose the behavior tracker for debugging purposes
+     */
+    fun getBehaviorTracker(): UserBehaviorTracker {
+        return behaviorTracker
+    }
+
+    /**
+     * Track a detailed swipe event from the EnhancedSwipeTracker
+     */
+    fun trackDetailedSwipe(swipeEvent: SwipeEvent) {
+        viewModelScope.launch {
+            // Send the event to the behavior tracker
+            behaviorTracker.trackDetailedSwipe(swipeEvent)
+
+            // Update tracking stats
+            _totalTrackedSwipes.value = _totalTrackedSwipes.value + 1
+
+            // Calculate average velocity (absolute value of y-velocity since we're mainly concerned with vertical swipes)
+            val currentTotal = _avgSwipeVelocity.value * (_totalTrackedSwipes.value - 1)
+            val newAvg = (currentTotal + Math.abs(swipeEvent.velocityY)) / _totalTrackedSwipes.value
+            _avgSwipeVelocity.value = newAvg
+
+            // Log detailed information about the swipe
+            Log.d("MainViewModel", "Tracked detailed swipe: " +
+                    "direction=${swipeEvent.direction}, " +
+                    "velocity=(${swipeEvent.velocityX.toInt()}, ${swipeEvent.velocityY.toInt()}), " +
+                    "distance=${swipeEvent.distance.toInt()}, " +
+                    "duration=${swipeEvent.swipeDurationMs}ms, " +
+                    "points=${swipeEvent.path.size}"
+            )
+
+            // For significant swipes, we'll end the current video view tracking
+            // and update the current video as needed based on the direction
+            when (swipeEvent.direction) {
+                SwipeDirection.UP, SwipeDirection.DOWN -> {
+                    endVideoViewTracking()
+                }
+                else -> { /* No action for horizontal swipes */ }
+            }
+        }
+    }
+
     fun onSwipeUp() {
         val videos = _videos.value
         if (videos.isEmpty()) return
 
         val currentIndex = _currentVideoIndex.value
         if (currentIndex < videos.size - 1) {
-            trackSwipeEvent(SwipeDirection.UP)
-            endVideoViewTracking()
+            // Only perform basic tracking if not already handled by enhanced tracking
+            if (_totalTrackedSwipes.value == 0) {
+                trackSwipeEvent(SwipeDirection.UP)
+                endVideoViewTracking()
+            }
 
             _currentVideoIndex.value = currentIndex + 1
-
             startVideoViewTracking(videos[currentIndex + 1].id)
         }
     }
@@ -69,11 +123,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onSwipeDown() {
         val currentIndex = _currentVideoIndex.value
         if (currentIndex > 0) {
-            trackSwipeEvent(SwipeDirection.DOWN)
-            endVideoViewTracking()
+            // Only perform basic tracking if not already handled by enhanced tracking
+            if (_totalTrackedSwipes.value == 0) {
+                trackSwipeEvent(SwipeDirection.DOWN)
+                endVideoViewTracking()
+            }
 
             _currentVideoIndex.value = currentIndex - 1
-
             startVideoViewTracking(_videos.value[currentIndex - 1].id)
         }
     }
@@ -81,12 +137,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onPageSelected(position: Int) {
         if (position != _currentVideoIndex.value) {
             // If the page was changed programmatically (e.g. by ViewPager2),
-            // track it as a swipe event
-            val direction = if (position > _currentVideoIndex.value)
-                SwipeDirection.UP else SwipeDirection.DOWN
+            // track it as a swipe event if it wasn't already tracked
+            if (_totalTrackedSwipes.value == 0) {
+                val direction = if (position > _currentVideoIndex.value)
+                    SwipeDirection.UP else SwipeDirection.DOWN
 
-            trackSwipeEvent(direction)
-            endVideoViewTracking()
+                trackSwipeEvent(direction)
+                endVideoViewTracking()
+            }
+
             _currentVideoIndex.value = position
             startVideoViewTracking(_videos.value[position].id)
         }
@@ -129,8 +188,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val swipeEvents = behaviorTracker.getSwipeEvents()
             val viewEvents = behaviorTracker.getViewEvents()
 
+            // Export both JSON and CSV formats for the swipe events
             dataExporter.exportSwipeEvents(swipeEvents)
+            dataExporter.exportSwipeEventsAsCSV(swipeEvents)
             dataExporter.exportViewEvents(viewEvents)
+
+            Log.d("MainViewModel", "Exported ${swipeEvents.size} swipe events and ${viewEvents.size} view events")
         }
     }
 
