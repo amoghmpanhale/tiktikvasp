@@ -33,21 +33,17 @@ fun AppNavigation() {
         startDestination = AppRoutes.LANDING
     ) {
         composable(AppRoutes.LANDING) {
-            val videoFolders by landingViewModel.availableFolders.collectAsState()
-            val participantId by landingViewModel.participantId.collectAsState()
-            val selectedFolder by landingViewModel.selectedFolder.collectAsState()
-
             LandingScreen(
-                onStartSession = { participantId, folderName ->
-                    // Set the participant ID in the MainViewModel
+                onStartSession = { participantId, folderName, durationMinutes, autoGeneratePngs ->
+                    // Set participant and folder
                     mainViewModel.setParticipantId(participantId)
-
-                    // Load videos from the selected folder
                     mainViewModel.loadVideosFromFolder(folderName)
+
+                    // Start the timed session using the two new parameters
+                    mainViewModel.startSession(durationMinutes, autoGeneratePngs)
 
                     // Navigate to the main screen
                     navController.navigate(AppRoutes.MAIN) {
-                        // Clear the back stack so users can't go back to the landing page
                         popUpTo(AppRoutes.LANDING) { inclusive = true }
                     }
                 }
