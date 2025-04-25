@@ -144,8 +144,8 @@ class VideoAdapter(
 
         private fun initializePlayer() {
             player = ExoPlayer.Builder(context).build().apply {
-                playWhenReady = false
-                repeatMode = Player.REPEAT_MODE_ONE
+                playWhenReady = true        // ← was false
+                repeatMode    = Player.REPEAT_MODE_ONE
 
                 // Add listener to update UI when player state changes
                 addListener(object : Player.Listener {

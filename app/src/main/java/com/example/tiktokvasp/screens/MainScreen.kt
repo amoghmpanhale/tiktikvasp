@@ -100,8 +100,9 @@ fun MainScreen(
                 override fun onDoubleTap()     { viewModel.likeCurrentVideo() }
                 override fun onLongPress()     { /* toggle debug */ }
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
-                    Log.d("MainScreen", "onDetailedSwipeDetected: swipeEvent = $swipeEvent")
+                    Log.d("MainScreen", "onDetailedSwipeDetected: $swipeEvent")
                     viewModel.trackDetailedSwipe(swipeEvent)
+                    lastSwipeEvent = swipeEvent    // ← add this so behaviorTracker actually retains it
                 }
             })
         }
@@ -163,6 +164,7 @@ fun MainScreen(
                                         super.onPageSelected(position)
                                         viewModel.onPageSelected(position)
                                         swipeDetector.setCurrentVideoId(videos[position].id)
+                                        videoAdapter.updateCurrentPosition(position)
                                     }
                                 })
 

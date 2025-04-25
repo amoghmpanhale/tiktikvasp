@@ -74,10 +74,9 @@ class DataExporter(private val context: Context) {
                         // Process each view event
                         views.forEach { view ->
                             // Find the swipe that ended this view
-                            val exitSwipe = swipeEvents.find {
-                                it.videoId == view.videoId &&
-                                        abs(it.timestamp - (view.timestamp + view.watchDurationMs)) < 1000
-                            }
+                            val exitSwipe = swipeEvents
+                                .filter { it.videoId == view.videoId && it.timestamp >= view.timestamp + view.watchDurationMs }
+                                .minByOrNull { it.timestamp }
 
                             // Get swipe analytics if available
                             val analytics = exitSwipe?.let { swipeAnalytics[it.id] }
