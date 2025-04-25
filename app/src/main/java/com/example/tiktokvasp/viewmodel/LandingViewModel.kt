@@ -15,6 +15,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 
 class LandingViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,23 +64,59 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
     private fun loadAvailableFolders() {
         viewModelScope.launch {
             try {
-                val downloadsDir = File("/storage/emulated/0/Download")
-                if (downloadsDir.exists()) {
-                    Log.d("LandingViewModel", "Downloads directory found!")
-                } else {
-                    Log.e("LandingViewModel", "Downloads directory does not exist!")
+                Log.e("LandingViewModel", "Attempting to load videos via MediaStore")
+
+                // Use MediaStore to get videos
+                val videos = mutableMapOf<String, MutableList<String>>()
+
+                val projection = arrayOf(
+                    MediaStore.Video.Media._ID,
+                    MediaStore.Video.Media.DISPLAY_NAME,
+                    MediaStore.Video.Media.RELATIVE_PATH
+                )
+
+                getApplication<Application>().contentResolver.query(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    projection,
+                    null,
+                    null,
+                    null
+                )?.use { cursor ->
+                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                    val pathColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.RELATIVE_PATH)
+
+                    Log.e("LandingViewModel", "Found ${cursor.count} videos in MediaStore")
+
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(idColumn)
+                        val name = cursor.getString(nameColumn)
+                        val path = cursor.getString(pathColumn)
+
+                        // Extract folder name from path
+                        val folderName = path.split("/").lastOrNull { it.isNotEmpty() } ?: "Unknown"
+
+                        Log.e("LandingViewModel", "Video: $name, Folder: $folderName, Path: $path")
+
+                        // Group videos by folder
+                        if (!videos.containsKey(folderName)) {
+                            videos[folderName] = mutableListOf()
+                        }
+                        videos[folderName]?.add(name)
+                    }
+
+                    // Convert to list of folder names that have videos
+                    val folders = videos.keys.toList()
+                    Log.e("LandingViewModel", "Found ${folders.size} folders with videos: $folders")
+
+                    _availableFolders.value = folders
+                } ?: run {
+                    Log.e("LandingViewModel", "MediaStore query returned null")
+                    _availableFolders.value = emptyList()
                 }
-
-                // Find all directories that contain video files
-                val folders = downloadsDir.listFiles { file ->
-                    file.isDirectory && hasVideoFiles(file)
-                }?.map { it.name } ?: emptyList()
-
-                Log.d("LandingViewModel", "Found ${folders.size} folders with videos")
-                _availableFolders.value = folders
-
             } catch (e: Exception) {
-                Log.e("LandingViewModel", "Error loading folders", e)
+                Log.e("LandingViewModel", "Error loading videos via MediaStore", e)
+                e.printStackTrace()
                 _availableFolders.value = emptyList()
             }
         }
