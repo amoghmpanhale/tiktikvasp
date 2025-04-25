@@ -210,40 +210,43 @@ class TikTokSwipeDetector(
         velocityY: Float,
         direction: SwipeDirection
     ) {
-        if (currentVideoId == null || swipePoints.size < 2) return
+        // if we don’t know what video we’re on, drop it
+        if (currentVideoId == null) return
 
-        // Calculate swipe distance
+        // DEBUG: always log how many points we collected
+        Log.d("SwipeDetector", "createDetailedSwipeEvent: pts=${swipePoints.size} dir=$direction")
+
+        // Calculate swipe distance & duration exactly as before
         val deltaX = endX - startX
         val deltaY = endY - startY
-        val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
-
-        // Calculate duration
+        val distance = sqrt(deltaX*deltaX + deltaY*deltaY)
         val duration = System.currentTimeMillis() - startTime
 
-        // Create the detailed swipe event
+        // build the event (path may be just 2 points, but that’s fine)
         val swipeEvent = SwipeEvent(
-            id = java.util.UUID.randomUUID().toString(),
-            sessionId = "",  // Will be populated by the tracker
-            timestamp = startTime,
-            videoId = currentVideoId!!,
-            direction = direction,
+            id            = java.util.UUID.randomUUID().toString(),
+            sessionId     = "",              // tracker will stamp this
+            timestamp     = startTime,
+            videoId       = currentVideoId!!,
+            direction     = direction,
             swipeDurationMs = duration,
-            startX = startX,
-            startY = startY,
-            endX = endX,
-            endY = endY,
-            velocityX = velocityX,
-            velocityY = velocityY,
-            distance = distance,
-            path = swipePoints.toList(),  // Make a copy of the path points
-            pressure = swipePoints.mapNotNull { it.pressure }.average().toFloat(),
-            screenWidth = screenWidth,
-            screenHeight = screenHeight
+            startX        = startX,
+            startY        = startY,
+            endX          = endX,
+            endY          = endY,
+            velocityX     = velocityX,
+            velocityY     = velocityY,
+            distance      = distance,
+            path          = swipePoints.toList(),
+            pressure      = swipePoints.mapNotNull { it.pressure }.average().toFloat(),
+            screenWidth   = screenWidth,
+            screenHeight  = screenHeight
         )
 
-        // Notify the listener
+        // fire it exactly once, unconditionally
         listener?.onDetailedSwipeDetected(swipeEvent)
     }
+
 
     // SensorEventListener implementation
     override fun onSensorChanged(event: SensorEvent) {

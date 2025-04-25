@@ -105,7 +105,7 @@ fun MainScreen(
 
                 // still record detailed swipes for analytics
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
-                    Log.d("MainScreen", "onDetailedSwipeDetected: $swipeEvent")
+                    Log.d("MainScreen","🎉 detailed swipe detected! $swipeEvent")
                     viewModel.trackDetailedSwipe(swipeEvent)
                     lastSwipeEvent = swipeEvent
                 }
