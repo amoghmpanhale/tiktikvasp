@@ -3,17 +3,122 @@ package com.example.tiktokvasp.tracking
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.example.tiktokvasp.model.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
+/**
+ * Enhanced data exporter that supports all the required metrics
+ */
 class DataExporter(private val context: Context) {
 
+    /**
+     * Export detailed session data as CSV with all metrics
+     */
+    suspend fun exportSessionData(
+        participantId: String,
+        category: String,
+        videos: List<Video>,
+        viewEvents: List<ViewEvent>,
+        swipeEvents: List<SwipeEvent>,
+        swipeAnalytics: Map<String, SwipeAnalytics>,
+        swipePatternPaths: Map<String, String>
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = getTimestamp()
+            val directory = getSessionDirectory(participantId, category)
+            val fileName = "session_data_${timestamp}.csv"
+            val file = File(directory, fileName)
+
+            FileWriter(file).use { writer ->
+                // Write CSV header
+                writer.append("Participant ID,Category,Video Number,Video Name,Video Duration(ms),")
+                writer.append("Watch Duration(ms),Watch Percentage,Liked?,Shared?,")
+                writer.append("Swipe Pattern Image,Swipe Direction,Swipe Velocity(px/s),")
+                writer.append("Swipe Acceleration(px/s²),Swipe Regularity(%)\n")
+
+                // Group view events by video
+                val viewsByVideo = viewEvents.groupBy { it.videoId }
+
+                // Create a map of video ID to video number (sequential numbering)
+                val videoNumberMap = mutableMapOf<String, Int>()
+                videos.forEachIndexed { index, video ->
+                    videoNumberMap[video.id] = index + 1
+                }
+
+                // Process each video
+                videos.forEach { video ->
+                    val videoNumber = videoNumberMap[video.id] ?: 0
+                    val videoName = video.title
+                    val videoDuration = video.duration
+
+                    // Find all view events for this video
+                    val views = viewsByVideo[video.id] ?: emptyList()
+
+                    // Find all swipe events after viewing this video
+                    val relevantSwipes = swipeEvents.filter { it.videoId == video.id }
+
+                    // If there are no views or swipes, still record the video with empty data
+                    if (views.isEmpty() && relevantSwipes.isEmpty()) {
+                        writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
+                        writer.append("0,0,No,No,,,0,0,0\n")
+                    } else {
+                        // Process each view event
+                        views.forEach { view ->
+                            // Find the swipe that ended this view
+                            val exitSwipe = swipeEvents.find {
+                                it.videoId == view.videoId &&
+                                        abs(it.timestamp - (view.timestamp + view.watchDurationMs)) < 1000
+                            }
+
+                            // Get swipe analytics if available
+                            val analytics = exitSwipe?.let { swipeAnalytics[it.id] }
+
+                            // Get swipe pattern path if available
+                            val patternPath = exitSwipe?.let { swipePatternPaths[it.id] } ?: ""
+
+                            // Determine if video was liked or shared (placeholder logic)
+                            // In a real app, this would be tracked in the ViewEvent
+                            val isLiked = "No" // Replace with actual data if tracked
+                            val isShared = "No" // Replace with actual data if tracked
+
+                            // Write the row
+                            writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
+                            writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,")
+
+                            if (exitSwipe != null && analytics != null) {
+                                writer.append("\"$patternPath\",${exitSwipe.direction},")
+                                writer.append("${abs(exitSwipe.velocityY).toInt()},")
+                                writer.append("${analytics.acceleration.toInt()},")
+                                writer.append("${(analytics.speedConsistency * 100).toInt()}\n")
+                            } else {
+                                writer.append(",,0,0,0\n")
+                            }
+                        }
+                    }
+                }
+            }
+
+            Log.d("DataExporter", "Exported session data to ${file.absolutePath}")
+            return@withContext file.absolutePath
+
+        } catch (e: Exception) {
+            Log.e("DataExporter", "Failed to export session data", e)
+            return@withContext ""
+        }
+    }
+
+    /**
+     * Export swipe events as before (keeping for backward compatibility)
+     */
     suspend fun exportSwipeEvents(events: List<SwipeEvent>): Boolean = withContext(Dispatchers.IO) {
         try {
             val jsonArray = JSONArray()
@@ -175,6 +280,17 @@ class DataExporter(private val context: Context) {
             directory.mkdirs()
         }
         return File(directory, fileName)
+    }
+
+    private fun getSessionDirectory(participantId: String, category: String): File {
+        val directory = File(
+            context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+            "TikTokVasp/$participantId/$category"
+        )
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+        return directory
     }
 
     private fun getTimestamp(): String {

@@ -6,20 +6,26 @@ import androidx.lifecycle.viewModelScope
 import com.example.tiktokvasp.model.Video
 import com.example.tiktokvasp.repository.VideoRepository
 import com.example.tiktokvasp.tracking.DataExporter
+import com.example.tiktokvasp.tracking.SessionManager
+import com.example.tiktokvasp.tracking.SwipeAnalyticsService
 import com.example.tiktokvasp.tracking.SwipeDirection
 import com.example.tiktokvasp.tracking.SwipeEvent
+import com.example.tiktokvasp.tracking.SwipeAnalytics
 import com.example.tiktokvasp.tracking.UserBehaviorTracker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import android.util.Log
+import java.util.concurrent.TimeUnit
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = VideoRepository(application)
     private val behaviorTracker = UserBehaviorTracker()
     private val dataExporter = DataExporter(application)
+    private val analyticsService = SwipeAnalyticsService()
+    private var sessionManager: SessionManager? = null
 
     private val _participantId = MutableStateFlow("")
     val participantId: StateFlow<String> = _participantId.asStateFlow()
@@ -36,6 +42,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isPlaying = MutableStateFlow(true)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
+    // Session timer state
+    private val _sessionTimeRemaining = MutableStateFlow<Long>(0)
+    val sessionTimeRemaining: StateFlow<Long> = _sessionTimeRemaining.asStateFlow()
+
+    private val _isSessionActive = MutableStateFlow(false)
+    val isSessionActive: StateFlow<Boolean> = _isSessionActive.asStateFlow()
+
+    // Export status
+    private val _exportStatus = MutableStateFlow("")
+    val exportStatus: StateFlow<String> = _exportStatus.asStateFlow()
+
     // Detailed swipe tracking stats
     private val _totalTrackedSwipes = MutableStateFlow(0)
     val totalTrackedSwipes: StateFlow<Int> = _totalTrackedSwipes.asStateFlow()
@@ -43,8 +60,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _avgSwipeVelocity = MutableStateFlow(0f)
     val avgSwipeVelocity: StateFlow<Float> = _avgSwipeVelocity.asStateFlow()
 
+    // Map to store all swipe analytics
+    private val swipeAnalyticsMap = mutableMapOf<String, SwipeAnalytics>()
+
+    // Map to store paths to generated swipe pattern PNGs
+    private val swipePatternPaths = mutableMapOf<String, String>()
+
     private var videoViewStartTime = 0L
     private var currentVideoId: String? = null
+    private var categoryFolder: String = ""
 
     init {
         loadVideos()
@@ -68,6 +92,107 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Start a timed data collection session
+     */
+    fun startSession(durationMinutes: Int, autoGeneratePngs: Boolean) {
+        if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
+            _exportStatus.value = "Please set participant ID and select a video folder first"
+            return
+        }
+
+        // Create session manager
+        sessionManager = SessionManager(
+            getApplication(),
+            _participantId.value,
+            categoryFolder
+        ).apply {
+            setOnTimerUpdateListener { remainingTime ->
+                _sessionTimeRemaining.value = remainingTime
+            }
+
+            setOnSessionCompleteListener {
+                _isSessionActive.value = false
+                _exportStatus.value = "Session completed. Exporting data..."
+
+                // Export data when session ends
+                exportSessionData()
+            }
+
+            // Start the session
+            startSession(durationMinutes, autoGeneratePngs)
+        }
+
+        _isSessionActive.value = true
+        _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
+    }
+
+    /**
+     * End the current session
+     */
+    fun endSession() {
+        sessionManager?.endSession()
+        _isSessionActive.value = false
+    }
+
+    /**
+     * Export session data to CSV with all metrics
+     */
+    fun exportSessionData() {
+        viewModelScope.launch {
+            endVideoViewTracking() // Make sure we record the last video view
+            _exportStatus.value = "Exporting data..."
+
+            val swipeEvents = behaviorTracker.getSwipeEvents()
+            val viewEvents = behaviorTracker.getViewEvents()
+
+            // Export using the enhanced format
+            val exportedFilePath = dataExporter.exportSessionData(
+                participantId = _participantId.value,
+                category = categoryFolder,
+                videos = _videos.value,
+                viewEvents = viewEvents,
+                swipeEvents = swipeEvents,
+                swipeAnalytics = swipeAnalyticsMap,
+                swipePatternPaths = swipePatternPaths
+            )
+
+            if (exportedFilePath.isNotEmpty()) {
+                _exportStatus.value = "Data exported to: $exportedFilePath"
+            } else {
+                _exportStatus.value = "Failed to export data"
+            }
+
+            // Also export the legacy formats for compatibility
+            dataExporter.exportSwipeEvents(swipeEvents)
+            dataExporter.exportSwipeEventsAsCSV(swipeEvents)
+            dataExporter.exportViewEvents(viewEvents)
+
+            Log.d(
+                "MainViewModel",
+                "Exported ${swipeEvents.size} swipe events and ${viewEvents.size} view events"
+            )
+        }
+    }
+
+    /**
+     * Generate a swipe pattern PNG on demand
+     */
+    fun generateSwipePatternPng(swipeId: String) {
+        viewModelScope.launch {
+            val event = behaviorTracker.getSwipeEvents().find { it.id == swipeId }
+            event?.let {
+                sessionManager?.let { manager ->
+                    val path = manager.generateSwipePatternPng(it)
+                    if (path.isNotEmpty()) {
+                        swipePatternPaths[swipeId] = path
+                        _exportStatus.value = "Generated swipe pattern: $path"
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Expose the behavior tracker for debugging purposes
      */
     fun getBehaviorTracker(): UserBehaviorTracker {
@@ -82,6 +207,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Send the event to the behavior tracker
             behaviorTracker.trackDetailedSwipe(swipeEvent)
 
+            // Generate analytics for this swipe
+            val analytics = analyticsService.analyzeSwipe(swipeEvent)
+            swipeAnalyticsMap[swipeEvent.id] = analytics
+
+            // Generate PNG if auto-generation is enabled
+            if (sessionManager?.isAutoGeneratePngsEnabled() == true) {
+                val path = sessionManager?.generateSwipePatternPng(swipeEvent)
+                if (!path.isNullOrEmpty()) {
+                    swipePatternPaths[swipeEvent.id] = path
+                }
+            }
+
             // Update tracking stats
             _totalTrackedSwipes.value = _totalTrackedSwipes.value + 1
 
@@ -91,12 +228,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _avgSwipeVelocity.value = newAvg
 
             // Log detailed information about the swipe
-            Log.d("MainViewModel", "Tracked detailed swipe: " +
-                    "direction=${swipeEvent.direction}, " +
-                    "velocity=(${swipeEvent.velocityX.toInt()}, ${swipeEvent.velocityY.toInt()}), " +
-                    "distance=${swipeEvent.distance.toInt()}, " +
-                    "duration=${swipeEvent.swipeDurationMs}ms, " +
-                    "points=${swipeEvent.path.size}"
+            Log.d(
+                "MainViewModel", "Tracked detailed swipe: " +
+                        "direction=${swipeEvent.direction}, " +
+                        "velocity=(${swipeEvent.velocityX.toInt()}, ${swipeEvent.velocityY.toInt()}), " +
+                        "distance=${swipeEvent.distance.toInt()}, " +
+                        "duration=${swipeEvent.swipeDurationMs}ms, " +
+                        "points=${swipeEvent.path.size}"
             )
 
             // For significant swipes, we'll end the current video view tracking
@@ -105,7 +243,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 SwipeDirection.UP, SwipeDirection.DOWN -> {
                     endVideoViewTracking()
                 }
-                else -> { /* No action for horizontal swipes */ }
+
+                else -> { /* No action for horizontal swipes */
+                }
             }
         }
     }
@@ -124,6 +264,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _currentVideoIndex.value = currentIndex + 1
             startVideoViewTracking(videos[currentIndex + 1].id)
+
+            // Update the session manager with the new video view
+            sessionManager?.trackVideoView(videos[currentIndex + 1])
         }
     }
 
@@ -138,6 +281,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _currentVideoIndex.value = currentIndex - 1
             startVideoViewTracking(_videos.value[currentIndex - 1].id)
+
+            // Update the session manager with the new video view
+            sessionManager?.trackVideoView(_videos.value[currentIndex - 1])
         }
     }
 
@@ -155,6 +301,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _currentVideoIndex.value = position
             startVideoViewTracking(_videos.value[position].id)
+
+            // Update the session manager with the new video view
+            sessionManager?.trackVideoView(_videos.value[position])
         }
     }
 
@@ -185,22 +334,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentVideoId?.let { videoId ->
             val swipeDuration = System.currentTimeMillis() - videoViewStartTime
             behaviorTracker.trackSwipe(direction, videoId, swipeDuration)
-        }
-    }
-
-    fun exportData() {
-        viewModelScope.launch {
-            endVideoViewTracking() // Make sure we record the last video view
-
-            val swipeEvents = behaviorTracker.getSwipeEvents()
-            val viewEvents = behaviorTracker.getViewEvents()
-
-            // Export both JSON and CSV formats for the swipe events
-            dataExporter.exportSwipeEvents(swipeEvents)
-            dataExporter.exportSwipeEventsAsCSV(swipeEvents)
-            dataExporter.exportViewEvents(viewEvents)
-
-            Log.d("MainViewModel", "Exported ${swipeEvents.size} swipe events and ${viewEvents.size} view events")
         }
     }
 
@@ -240,6 +373,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun loadVideosFromFolder(folderName: String) {
         viewModelScope.launch {
             _isLoading.value = true
+            categoryFolder = folderName
             val folderVideos = repository.getVideosFromFolder(folderName)
             _videos.value = folderVideos
             _isLoading.value = false
@@ -250,9 +384,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Get formatted time remaining string (mm:ss)
+     */
+    fun getFormattedTimeRemaining(): String {
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(_sessionTimeRemaining.value)
+        val seconds = TimeUnit.MILLISECONDS.toSeconds(_sessionTimeRemaining.value) % 60
+        return String.format("%02d:%02d", minutes, seconds)
+    }
+
     override fun onCleared() {
         endVideoViewTracking()
-        exportData() // Export data when ViewModel is cleared
+        endSession()
+        exportSessionData() // Export data when ViewModel is cleared
         super.onCleared()
     }
 }
