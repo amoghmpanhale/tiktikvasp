@@ -152,15 +152,16 @@ fun MainScreen(
                     AndroidView(
                         factory = { ctx ->
                             ViewPager2(ctx).apply {
+                                // WRITE BACK to the state here:
+                                viewPager = this
+
                                 adapter = videoAdapter
                                 orientation = ViewPager2.ORIENTATION_VERTICAL
 
-                                // Register callback for page changes
                                 registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                                     override fun onPageSelected(position: Int) {
                                         super.onPageSelected(position)
                                         viewModel.onPageSelected(position)
-                                        // tell detector which video we’re now on
                                         swipeDetector.setCurrentVideoId(videos[position].id)
                                     }
                                 })
@@ -170,10 +171,10 @@ fun MainScreen(
                         },
                         modifier = Modifier.fillMaxSize(),
                         update = { pager ->
-                            // Update the adapter if videos change
-                            (pager.adapter as? VideoAdapter)?.updateVideos(videos)
+                            // ALSO ensure state stays in sync if Compose reuses the view:
+                            viewPager = pager
 
-                            // Update current position if it changes in the viewModel
+                            (pager.adapter as? VideoAdapter)?.updateVideos(videos)
                             if (pager.currentItem != currentVideoIndex) {
                                 pager.setCurrentItem(currentVideoIndex, true)
                             }
@@ -182,7 +183,6 @@ fun MainScreen(
 
                     // Apply enhanced swipe detector to the ViewPager
                     DisposableEffect(viewPager) {
-                        // ViewPager2’s first child is the RecyclerView that actually receives touch events
                         val rv = viewPager?.getChildAt(0)
                         rv?.setOnTouchListener(swipeDetector)
                         onDispose {

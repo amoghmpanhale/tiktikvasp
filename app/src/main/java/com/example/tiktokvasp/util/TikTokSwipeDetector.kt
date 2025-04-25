@@ -99,23 +99,24 @@ class TikTokSwipeDetector(
     override fun onTouch(view: View?, event: MotionEvent?): Boolean {
         if (event == null) return false
 
-        Log.d("SwipeDetector", "onTouch() called on view=$view action=${event.action} raw=(${event.rawX},${event.rawY})")
+        // 1) Debug every call, showing the masked action
+        Log.d("SwipeDetector", "onTouch() view=$view actionMasked=${event.actionMasked} raw=(${event.rawX},${event.rawY})")
 
-        // Initialize velocity tracker if needed
+        // velocity tracking (unchanged)
         if (velocityTracker == null) {
             velocityTracker = VelocityTracker.obtain()
         }
         velocityTracker?.addMovement(event)
 
-        when (event.action) {
+        // 2) Use actionMasked so we match DOWN, MOVE, UP correctly
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // Start tracking a new swipe, using raw coordinates
                 isTracking = true
                 startX = event.rawX
                 startY = event.rawY
                 startTime = System.currentTimeMillis()
                 swipePoints.clear()
-                // Add the initial point
+                Log.d("SwipeDetector", "→ ACTION_DOWN, starting swipe at ($startX,$startY)")
                 addSwipePoint(event)
             }
 
@@ -123,6 +124,7 @@ class TikTokSwipeDetector(
                 if (isTracking) {
                     val lastTime = swipePoints.lastOrNull()?.timestamp ?: 0L
                     if (System.currentTimeMillis() - lastTime >= TRACKING_INTERVAL_MS) {
+                        Log.d("SwipeDetector", "→ ACTION_MOVE, adding point")
                         addSwipePoint(event)
                     }
                 }
@@ -131,25 +133,22 @@ class TikTokSwipeDetector(
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
                 if (isTracking) {
-                    // final point
+                    Log.d("SwipeDetector", "→ ACTION_UP/CANCEL, finishing swipe")
                     addSwipePoint(event)
-
-                    // compute velocity in pixels/sec
                     velocityTracker?.computeCurrentVelocity(1000)
-                    val velocityX = velocityTracker?.xVelocity ?: 0f
-                    val velocityY = velocityTracker?.yVelocity ?: 0f
+                    val vx = velocityTracker?.xVelocity ?: 0f
+                    val vy = velocityTracker?.yVelocity ?: 0f
 
-                    // decide if it was a swipe
-                    val deltaX = event.rawX - startX
-                    val deltaY = event.rawY - startY
-                    val distance = sqrt(deltaX*deltaX + deltaY*deltaY)
-                    if (distance > SWIPE_THRESHOLD) {
-                        val dir = calculateSwipeDirection(deltaX, deltaY)
+                    val dx = event.rawX - startX
+                    val dy = event.rawY - startY
+                    val dist = sqrt(dx*dx + dy*dy)
+                    if (dist > SWIPE_THRESHOLD) {
+                        val dir = calculateSwipeDirection(dx, dy)
                         createDetailedSwipeEvent(
                             endX = event.rawX,
                             endY = event.rawY,
-                            velocityX = velocityX,
-                            velocityY = velocityY,
+                            velocityX = vx,
+                            velocityY = vy,
                             direction = dir
                         )
                         when (dir) {
@@ -160,7 +159,6 @@ class TikTokSwipeDetector(
                         }
                     }
 
-                    // reset
                     isTracking = false
                     velocityTracker?.recycle()
                     velocityTracker = null
@@ -168,8 +166,9 @@ class TikTokSwipeDetector(
             }
         }
 
-        // let taps/double-taps through
-        return gestureDetector.onTouchEvent(event)
+        // Let GestureDetector handle taps, but always consume so we keep getting MOVE/UP
+        gestureDetector.onTouchEvent(event)
+        return true
     }
 
     private fun addSwipePoint(event: MotionEvent) {
