@@ -92,46 +92,24 @@ fun MainScreen(
     val swipeDetector = remember {
         TikTokSwipeDetector(context).apply {
             setOnSwipeListener(object : TikTokSwipeDetector.OnSwipeListener {
-                override fun onSwipeUp() {
-                    viewModel.onSwipeUp()
-                }
-
-                override fun onSwipeDown() {
-                    viewModel.onSwipeDown()
-                }
-
-                override fun onSwipeLeft() {
-                    // Optional - handle horizontal swipes if needed
-                }
-
-                override fun onSwipeRight() {
-                    // Optional - handle horizontal swipes if needed
-                }
-
-                override fun onSingleTap() {
-                    viewModel.toggleVideoPlayback()
-                }
-
-                override fun onDoubleTap() {
-                    viewModel.likeCurrentVideo()
-                }
-
-                override fun onLongPress() {
-                    // Toggle debug info display
-                    showDebugInfo = !showDebugInfo
-                }
-
+                override fun onSwipeUp()       { viewModel.onSwipeUp() }
+                override fun onSwipeDown()     { viewModel.onSwipeDown() }
+                override fun onSwipeLeft()     { }
+                override fun onSwipeRight()    { }
+                override fun onSingleTap()     { viewModel.toggleVideoPlayback() }
+                override fun onDoubleTap()     { viewModel.likeCurrentVideo() }
+                override fun onLongPress()     { /* toggle debug */ }
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
-                    // Add this log statement:
                     Log.d("MainScreen", "onDetailedSwipeDetected: swipeEvent = $swipeEvent")
-
-                    // Record the swipe event in the view model
                     viewModel.trackDetailedSwipe(swipeEvent)
-
-                    // Update the last swipe event for visualization
-                    lastSwipeEvent = swipeEvent
                 }
             })
+        }
+    }
+
+    LaunchedEffect(videos, currentVideoIndex) {
+        if (videos.isNotEmpty()) {
+            swipeDetector.setCurrentVideoId(videos[currentVideoIndex].id)
         }
     }
 
@@ -172,8 +150,8 @@ fun MainScreen(
                 else -> {
                     // ViewPager2 implementation with vertical swiping
                     AndroidView(
-                        factory = { context ->
-                            ViewPager2(context).apply {
+                        factory = { ctx ->
+                            ViewPager2(ctx).apply {
                                 adapter = videoAdapter
                                 orientation = ViewPager2.ORIENTATION_VERTICAL
 
@@ -182,15 +160,12 @@ fun MainScreen(
                                     override fun onPageSelected(position: Int) {
                                         super.onPageSelected(position)
                                         viewModel.onPageSelected(position)
+                                        // tell detector which video we’re now on
+                                        swipeDetector.setCurrentVideoId(videos[position].id)
                                     }
                                 })
 
-                                // Set current item to match the view model state
                                 setCurrentItem(currentVideoIndex, false)
-
-                                // Save references
-                                viewPager = this
-                                viewPagerContainer = this
                             }
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -206,14 +181,12 @@ fun MainScreen(
                     )
 
                     // Apply enhanced swipe detector to the ViewPager
-                    DisposableEffect(viewPagerContainer) {
-                        val container = viewPagerContainer
-                        if (container != null) {
-                            container.setOnTouchListener(swipeDetector)
-                        }
-
+                    DisposableEffect(viewPager) {
+                        // ViewPager2’s first child is the RecyclerView that actually receives touch events
+                        val rv = viewPager?.getChildAt(0)
+                        rv?.setOnTouchListener(swipeDetector)
                         onDispose {
-                            container?.setOnTouchListener(null)
+                            rv?.setOnTouchListener(null)
                             swipeDetector.unregisterSensors()
                         }
                     }

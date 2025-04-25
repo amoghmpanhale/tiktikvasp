@@ -122,7 +122,6 @@ class DataExporter(private val context: Context) {
     suspend fun exportSwipeEvents(events: List<SwipeEvent>): Boolean = withContext(Dispatchers.IO) {
         try {
             val jsonArray = JSONArray()
-
             events.forEach { event ->
                 val eventJson = JSONObject().apply {
                     // Basic information
@@ -160,25 +159,33 @@ class DataExporter(private val context: Context) {
                     }
                     put("path", pathArray)
 
-                    // Add calculated metrics that may be useful for analysis
-                    put("normalizedDistanceX", event.endX - event.startX / event.screenWidth.toFloat())
-                    put("normalizedDistanceY", event.endY - event.startY / event.screenHeight.toFloat())
+                    // safe normalized distances
+                    val normX = if (event.screenWidth > 0)
+                        (event.endX - event.startX) / event.screenWidth.toFloat()
+                    else 0f
+                    put("normalizedDistanceX", if (normX.isFinite()) normX else 0f)
 
-                    // Duration in seconds for easier analysis
-                    put("durationSeconds", event.swipeDurationMs / 1000.0)
+                    val normY = if (event.screenHeight > 0)
+                        (event.endY - event.startY) / event.screenHeight.toFloat()
+                    else 0f
+                    put("normalizedDistanceY", if (normY.isFinite()) normY else 0f)
+
+                    // safe duration in seconds
+                    val durSec = event.swipeDurationMs / 1000.0
+                    put("durationSeconds", if (durSec.isFinite()) durSec else 0.0)
                 }
                 jsonArray.put(eventJson)
             }
 
             val fileName = "detailed_swipe_events_${getTimestamp()}.json"
             val file = getOutputFile(fileName)
-
             file.writeText(jsonArray.toString(4))
+
             Log.d("DataExporter", "Exported detailed swipe events to ${file.absolutePath}")
-            return@withContext true
+            true
         } catch (e: Exception) {
             Log.e("DataExporter", "Failed to export detailed swipe events", e)
-            return@withContext false
+            false
         }
     }
 
