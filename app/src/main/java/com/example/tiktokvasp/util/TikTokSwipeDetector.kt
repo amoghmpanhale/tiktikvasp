@@ -39,7 +39,7 @@ class TikTokSwipeDetector(
 
     private var listener: OnSwipeListener? = null
     private val gestureDetector: GestureDetector
-    private var velocityTracker: VelocityTracker? = null
+    private val velocityTracker = StableVelocityTracker()
     private var currentVideoId: String? = null
 
     // Screen dimensions
@@ -62,7 +62,7 @@ class TikTokSwipeDetector(
 
     // Configuration constants
     private val SWIPE_THRESHOLD = 0f
-    private val SWIPE_VELOCITY_THRESHOLD = 100f
+    private val SWIPE_VELOCITY_THRESHOLD = 0f
     private val TRACKING_INTERVAL_MS = 5L  // Track points every 5ms for high-resolution data
 
     init {
@@ -102,58 +102,61 @@ class TikTokSwipeDetector(
         val action = event.actionMasked
         Log.d("SwipeDetector", "onTouch action=$action raw=(${event.rawX},${event.rawY})")
 
-        if (velocityTracker == null) velocityTracker = VelocityTracker.obtain()
-        velocityTracker?.addMovement(event)
-
         when (action) {
             MotionEvent.ACTION_DOWN -> {
                 isTracking = true
-                startX = event.rawX;  startY = event.rawY
+                startX = event.rawX
+                startY = event.rawY
                 startTime = System.currentTimeMillis()
                 swipePoints.clear()
-                Log.d("SwipeDetector","→ DOWN at ($startX,$startY)")
+                velocityTracker.start(event.rawX, event.rawY, System.currentTimeMillis()) // <-- NEW
+                Log.d("SwipeDetector", "→ DOWN at ($startX,$startY)")
                 addSwipePoint(event)
             }
+
             MotionEvent.ACTION_MOVE -> if (isTracking) {
                 val lastT = swipePoints.lastOrNull()?.timestamp ?: 0L
                 if (System.currentTimeMillis() - lastT >= TRACKING_INTERVAL_MS) {
-                    Log.d("SwipeDetector","→ MOVE point")
+                    Log.d("SwipeDetector", "→ MOVE point")
                     addSwipePoint(event)
                 }
+                velocityTracker.update(event.rawX, event.rawY, System.currentTimeMillis()) // <-- NEW
             }
+
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (isTracking) {
-                Log.d("SwipeDetector","→ UP/CANCEL, finishing")
+                Log.d("SwipeDetector", "→ UP/CANCEL, finishing")
                 addSwipePoint(event)
-                velocityTracker?.computeCurrentVelocity(1000)
+
                 val dx = event.rawX - startX
                 val dy = event.rawY - startY
-                val dist = sqrt(dx*dx + dy*dy)
-                Log.d("SwipeDetector","   dist=$dist threshold=$SWIPE_THRESHOLD")
+                val dist = sqrt(dx * dx + dy * dy)
+                Log.d("SwipeDetector", "   dist=$dist threshold=$SWIPE_THRESHOLD")
 
-                // always emit detailed event
+                val smoothedVelocity = velocityTracker.getSmoothedVelocity()
+
                 val dir = calculateSwipeDirection(dx, dy)
-                createDetailedSwipeEvent(event.rawX, event.rawY,
-                    velocityTracker?.xVelocity ?:0f,
-                    velocityTracker?.yVelocity ?:0f,
-                    dir)
 
-                // optionally tell pager to move if you still want threshold-based flips:
+                createDetailedSwipeEvent(
+                    event.rawX,
+                    event.rawY,
+                    velocityX = velocityTracker.velocityX,   // <<<< USE tracked X velocity
+                    velocityY = velocityTracker.velocityY,   // <<<< USE tracked Y velocity
+                    direction = dir
+                )
+
                 if (dist > SWIPE_THRESHOLD) {
-                    if (dir == SwipeDirection.UP)    listener?.onSwipeUp()
-                    if (dir == SwipeDirection.DOWN)  listener?.onSwipeDown()
+                    if (dir == SwipeDirection.UP) listener?.onSwipeUp()
+                    if (dir == SwipeDirection.DOWN) listener?.onSwipeDown()
                 }
 
                 isTracking = false
-                velocityTracker?.recycle()
-                velocityTracker = null
             }
         }
 
-        // let taps through
         gestureDetector.onTouchEvent(event)
-        // return false so parent (the pager) still scrolls
         return false
     }
+
 
     private fun addSwipePoint(event: MotionEvent) {
         val px = event.rawX
