@@ -59,6 +59,7 @@ import com.example.tiktokvasp.tracking.SwipeDirection
 import com.example.tiktokvasp.tracking.SwipeEvent
 import com.example.tiktokvasp.util.TikTokSwipeDetector
 import com.example.tiktokvasp.viewmodel.MainViewModel
+import java.util.concurrent.TimeUnit
 
 @Composable
 fun MainScreen(
@@ -215,19 +216,14 @@ fun MainScreen(
                                 .border(1.dp, Color(0xFFFF0050), RoundedCornerShape(8.dp))
                                 .padding(8.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Timer,
-                                    contentDescription = "Session Timer",
-                                    tint = Color(0xFFFF0050)
-                                )
-
-                                Spacer(modifier = Modifier.width(4.dp))
-
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Timer, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                // format the live-updating state:
+                                val mins = TimeUnit.MILLISECONDS.toMinutes(sessionTimeRemaining)
+                                val secs = TimeUnit.MILLISECONDS.toSeconds(sessionTimeRemaining) % 60
                                 Text(
-                                    text = viewModel.getFormattedTimeRemaining(),
+                                    text = String.format("%02d:%02d", mins, secs),
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
