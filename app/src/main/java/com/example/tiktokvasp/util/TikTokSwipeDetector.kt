@@ -99,77 +99,68 @@ class TikTokSwipeDetector(
     override fun onTouch(view: View?, event: MotionEvent?): Boolean {
         if (event == null) return false
 
-        val am = event.actionMasked
-        Log.d("SwipeDetector", "onTouch actionMasked=$am raw=(${event.rawX},${event.rawY})")
+        val action = event.actionMasked
+        Log.d("SwipeDetector", "onTouch action=$action raw=(${event.rawX},${event.rawY})")
 
         if (velocityTracker == null) velocityTracker = VelocityTracker.obtain()
         velocityTracker?.addMovement(event)
 
-        when (am) {
+        when (action) {
             MotionEvent.ACTION_DOWN -> {
                 isTracking = true
-                startX = event.rawX; startY = event.rawY
+                startX = event.rawX;  startY = event.rawY
                 startTime = System.currentTimeMillis()
                 swipePoints.clear()
                 Log.d("SwipeDetector","→ DOWN at ($startX,$startY)")
                 addSwipePoint(event)
             }
-
             MotionEvent.ACTION_MOVE -> if (isTracking) {
                 val lastT = swipePoints.lastOrNull()?.timestamp ?: 0L
                 if (System.currentTimeMillis() - lastT >= TRACKING_INTERVAL_MS) {
-                    Log.d("SwipeDetector","→ MOVE, adding point")
+                    Log.d("SwipeDetector","→ MOVE point")
                     addSwipePoint(event)
                 }
             }
-
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> if (isTracking) {
-                Log.d("SwipeDetector","→ UP/CANCEL, computing swipe")
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (isTracking) {
+                Log.d("SwipeDetector","→ UP/CANCEL, finishing")
                 addSwipePoint(event)
                 velocityTracker?.computeCurrentVelocity(1000)
                 val dx = event.rawX - startX
                 val dy = event.rawY - startY
                 val dist = sqrt(dx*dx + dy*dy)
                 Log.d("SwipeDetector","   dist=$dist threshold=$SWIPE_THRESHOLD")
-                // always call detailed
+
+                // always emit detailed event
                 val dir = calculateSwipeDirection(dx, dy)
                 createDetailedSwipeEvent(event.rawX, event.rawY,
                     velocityTracker?.xVelocity ?:0f,
                     velocityTracker?.yVelocity ?:0f,
                     dir)
-                // only for page-turn:
+
+                // optionally tell pager to move if you still want threshold-based flips:
                 if (dist > SWIPE_THRESHOLD) {
-                    when (dir) {
-                        SwipeDirection.UP   -> listener?.onSwipeUp()
-                        SwipeDirection.DOWN -> listener?.onSwipeDown()
-                        else                -> {}
-                    }
+                    if (dir == SwipeDirection.UP)    listener?.onSwipeUp()
+                    if (dir == SwipeDirection.DOWN)  listener?.onSwipeDown()
                 }
+
                 isTracking = false
                 velocityTracker?.recycle()
                 velocityTracker = null
             }
         }
 
+        // let taps through
         gestureDetector.onTouchEvent(event)
-        // ← return false so ViewPager2 still scrolls
+        // return false so parent (the pager) still scrolls
         return false
     }
-
 
     private fun addSwipePoint(event: MotionEvent) {
         val px = event.rawX
         val py = event.rawY
-        val p = SwipePoint(
-            x = px,
-            y = py,
-            timestamp = System.currentTimeMillis(),
-            pressure = event.pressure
-        )
+        val p = SwipePoint(x=px, y=py, timestamp=System.currentTimeMillis(), pressure=event.pressure)
         swipePoints.add(p)
-        // debug log to prove points are non-zero now
-        Log.d("SwipeDetector", "pt: x=$px y=$py pressure=${event.pressure}")
+        Log.d("SwipeDetector","pt: x=$px y=$py pressure=${event.pressure}")
     }
 
 

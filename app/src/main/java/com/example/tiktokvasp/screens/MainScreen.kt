@@ -200,7 +200,14 @@ fun MainScreen(
                                 pager.setCurrentItem(currentVideoIndex, true)
                             }
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .pointerInteropFilter { motionEvent ->
+                                // send every event into your detector
+                                swipeDetector.onTouch(viewPager, motionEvent)
+                                // return false so ViewPager2 still scrolls normally
+                                false
+                            }
+                            .fillMaxSize()
                     )
 
                     // Apply enhanced swipe detector to the ViewPager
