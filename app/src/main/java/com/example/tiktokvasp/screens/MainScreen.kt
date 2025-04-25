@@ -34,14 +34,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.recyclerview.widget.RecyclerView
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -61,6 +65,7 @@ import com.example.tiktokvasp.util.TikTokSwipeDetector
 import com.example.tiktokvasp.viewmodel.MainViewModel
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = viewModel(),
@@ -159,13 +164,11 @@ fun MainScreen(
                     AndroidView(
                         factory = { ctx ->
                             ViewPager2(ctx).apply {
-                                // WRITE BACK to the state here:
                                 viewPager = this
-
                                 adapter = videoAdapter
                                 orientation = ViewPager2.ORIENTATION_VERTICAL
 
-                                    registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
+                                registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
                                     override fun onPageSelected(pos: Int) {
                                         super.onPageSelected(pos)
                                         viewModel.onPageSelected(pos)
@@ -174,30 +177,58 @@ fun MainScreen(
                                     }
                                 })
 
+                                // ensure the internal RecyclerView exists, then hook the detector
+                                post {
+                                    // The first (and only) child of ViewPager2 is its RecyclerView
+                                    (getChildAt(0) as? RecyclerView)?.let { rv ->
+                                        Log.d("MainScreen","📌 attaching swipeDetector to RecyclerView in factory → $rv")
+                                        rv.setOnTouchListener { v, ev ->
+                                            swipeDetector.onTouch(v, ev)
+                                            // return false so RecyclerView/ViewPager2 still handles scrolling
+                                            false
+                                        }
+                                    }
+                                }
+
                                 setCurrentItem(currentVideoIndex, false)
                             }
                         },
-                        modifier = Modifier.fillMaxSize(),
                         update = { pager ->
-                            // ALSO ensure state stays in sync if Compose reuses the view:
                             viewPager = pager
-
                             (pager.adapter as? VideoAdapter)?.updateVideos(videos)
                             if (pager.currentItem != currentVideoIndex) {
                                 pager.setCurrentItem(currentVideoIndex, true)
                             }
-                        }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
 
                     // Apply enhanced swipe detector to the ViewPager
-                    DisposableEffect(viewPager) {
-                        val rv = viewPager?.getChildAt(0)
-                        rv?.setOnTouchListener(swipeDetector)
-                        onDispose {
-                            rv?.setOnTouchListener(null)
-                            swipeDetector.unregisterSensors()
-                        }
-                    }
+//                    DisposableEffect(viewPager) {
+//                        // Grab the RecyclerView child if it exists right now
+//                        val rv = (viewPager?.getChildAt(0) as? RecyclerView)
+//                        rv?.setOnTouchListener(swipeDetector)
+//
+//                        // Listen for any future RecyclerView children being attached
+//                        val childAttachListener = object : RecyclerView.OnChildAttachStateChangeListener {
+//                            override fun onChildViewAttachedToWindow(child: View) {
+//                                if (child is RecyclerView) {
+//                                    child.setOnTouchListener(swipeDetector)
+//                                    Log.d("MainScreen", "attached detector to new RecyclerView child")
+//                                }
+//                            }
+//                            override fun onChildViewDetachedFromWindow(child: View) { /* no-op */ }
+//                        }
+//                        // Only add the listener if we have a RecyclerView now
+//                        rv?.addOnChildAttachStateChangeListener(childAttachListener)
+//
+//                        onDispose {
+//                            // Clean up the touch-listener and attach-listener
+//                            rv?.removeOnChildAttachStateChangeListener(childAttachListener)
+//                            rv?.setOnTouchListener(null)
+//                            swipeDetector.unregisterSensors()
+//                        }
+//                    }
 
                     // Add the TikTok top bar
                     TikTokTopBar(
