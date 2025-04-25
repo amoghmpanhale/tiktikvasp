@@ -92,20 +92,25 @@ fun MainScreen(
     val swipeDetector = remember {
         TikTokSwipeDetector(context).apply {
             setOnSwipeListener(object : TikTokSwipeDetector.OnSwipeListener {
-                override fun onSwipeUp()       { viewModel.onSwipeUp() }
-                override fun onSwipeDown()     { viewModel.onSwipeDown() }
-                override fun onSwipeLeft()     { }
-                override fun onSwipeRight()    { }
+                // ← swallow the simple up/down gestures so ViewPager2 handles them:
+                override fun onSwipeUp()    { /* no-op */ }
+                override fun onSwipeDown()  { /* no-op */ }
+                override fun onSwipeLeft()  { /* no-op */ }
+                override fun onSwipeRight() { /* no-op */ }
+
                 override fun onSingleTap()     { viewModel.toggleVideoPlayback() }
                 override fun onDoubleTap()     { viewModel.likeCurrentVideo() }
-                override fun onLongPress()     { /* toggle debug */ }
+                override fun onLongPress()     { /* … */ }
+
+                // still record detailed swipes for analytics
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
                     Log.d("MainScreen", "onDetailedSwipeDetected: $swipeEvent")
                     viewModel.trackDetailedSwipe(swipeEvent)
-                    lastSwipeEvent = swipeEvent    // ← add this so behaviorTracker actually retains it
+                    lastSwipeEvent = swipeEvent
                 }
             })
         }
+
     }
 
     LaunchedEffect(videos, currentVideoIndex) {
@@ -159,12 +164,12 @@ fun MainScreen(
                                 adapter = videoAdapter
                                 orientation = ViewPager2.ORIENTATION_VERTICAL
 
-                                registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                                    override fun onPageSelected(position: Int) {
-                                        super.onPageSelected(position)
-                                        viewModel.onPageSelected(position)
-                                        swipeDetector.setCurrentVideoId(videos[position].id)
-                                        videoAdapter.updateCurrentPosition(position)
+                                    registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
+                                    override fun onPageSelected(pos: Int) {
+                                        super.onPageSelected(pos)
+                                        viewModel.onPageSelected(pos)
+                                        swipeDetector.setCurrentVideoId(videos[pos].id)
+                                        videoAdapter.updateCurrentPosition(pos)
                                     }
                                 })
 
