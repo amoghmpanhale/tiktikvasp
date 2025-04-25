@@ -99,8 +99,8 @@ class TikTokSwipeDetector(
     override fun onTouch(view: View?, event: MotionEvent?): Boolean {
         if (event == null) return false
 
-        // 1) Debug every call, showing the masked action
-        Log.d("SwipeDetector", "onTouch() view=$view actionMasked=${event.actionMasked} raw=(${event.rawX},${event.rawY})")
+        // debug that we're seeing it
+        Log.d("SwipeDetector", "onTouch() actionMasked=${event.actionMasked} raw=(${event.rawX},${event.rawY})")
 
         // velocity tracking (unchanged)
         if (velocityTracker == null) {
@@ -166,9 +166,10 @@ class TikTokSwipeDetector(
             }
         }
 
-        // Let GestureDetector handle taps, but always consume so we keep getting MOVE/UP
+        // let GestureDetector handle taps/double-taps
         gestureDetector.onTouchEvent(event)
-        return true
+        // ← IMPORTANT: return false so the RecyclerView/ViewPager2 still receives the event
+        return false
     }
 
     private fun addSwipePoint(event: MotionEvent) {
