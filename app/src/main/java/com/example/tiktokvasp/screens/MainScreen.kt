@@ -4,7 +4,9 @@ import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +32,7 @@ import androidx.viewpager2.widget.ViewPager2
 import com.example.tiktokvasp.adapters.VideoAdapter
 import com.example.tiktokvasp.components.SwipeAnalyticsOverlay
 import com.example.tiktokvasp.components.TikTokBottomBar
+import com.example.tiktokvasp.components.TikTokTopBar
 import com.example.tiktokvasp.tracking.SwipeAnalyticsService
 import com.example.tiktokvasp.tracking.SwipeDirection
 import com.example.tiktokvasp.tracking.SwipeEvent
@@ -104,115 +107,117 @@ fun MainScreen(
         }
     }
 
-    // Set the current video ID for the swipe detector
-    DisposableEffect(currentVideoIndex, videos) {
-        if (currentVideoIndex >= 0 && currentVideoIndex < videos.size) {
-            swipeDetector.setCurrentVideoId(videos[currentVideoIndex].id)
-        }
-        onDispose { }
-    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            isLoading -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
+                )
+            }
 
-    Scaffold(
-        bottomBar = {
-            TikTokBottomBar()
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onOpenDebugScreen,
-                containerColor = Color(0x99000000),
-                contentColor = Color.White
-            ) {
-                Icon(
-                    imageVector = Icons.Default.BugReport,
-                    contentDescription = "Open Debug"
+            videos.isEmpty() -> {
+                Text(
+                    text = "No videos found. Please add videos to your device.",
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp)
+                )
+            }
+
+            else -> {
+                // ViewPager2 implementation with vertical swiping
+                AndroidView(
+                    factory = { context ->
+                        ViewPager2(context).apply {
+                            adapter = videoAdapter
+                            orientation = ViewPager2.ORIENTATION_VERTICAL
+
+                            // Register callback for page changes
+                            registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                                override fun onPageSelected(position: Int) {
+                                    super.onPageSelected(position)
+                                    viewModel.onPageSelected(position)
+                                }
+                            })
+
+                            // Set current item to match the view model state
+                            setCurrentItem(currentVideoIndex, false)
+
+                            // Save references
+                            viewPager = this
+                            viewPagerContainer = this
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { pager ->
+                        // Update the adapter if videos change
+                        (pager.adapter as? VideoAdapter)?.updateVideos(videos)
+
+                        // Update current position if it changes in the viewModel
+                        if (pager.currentItem != currentVideoIndex) {
+                            pager.setCurrentItem(currentVideoIndex, true)
+                        }
+                    }
+                )
+
+                // Apply enhanced swipe detector to the ViewPager
+                DisposableEffect(viewPagerContainer) {
+                    val container = viewPagerContainer
+                    if (container != null) {
+                        container.setOnTouchListener(swipeDetector)
+                    }
+
+                    onDispose {
+                        container?.setOnTouchListener(null)
+                        swipeDetector.unregisterSensors()
+                    }
+                }
+
+                // Add the TikTok top bar
+                TikTokTopBar(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
                 )
             }
         }
-    ) { paddingValues ->
-        Box(
+
+        // Bottom navigation bar
+        TikTokBottomBar(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.Black)
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+        )
+
+        // Debug button
+        FloatingActionButton(
+            onClick = onOpenDebugScreen,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = Color(0x99000000),
+            contentColor = Color.White
         ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Color.White
-                    )
-                }
+            Icon(
+                imageVector = Icons.Default.BugReport,
+                contentDescription = "Open Debug"
+            )
+        }
 
-                videos.isEmpty() -> {
-                    Text(
-                        text = "No videos found. Please add videos to your device.",
-                        color = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp)
-                    )
-                }
-
-                else -> {
-                    // ViewPager2 implementation with vertical swiping
-                    AndroidView(
-                        factory = { context ->
-                            ViewPager2(context).apply {
-                                adapter = videoAdapter
-                                orientation = ViewPager2.ORIENTATION_VERTICAL
-
-                                // Register callback for page changes
-                                registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                                    override fun onPageSelected(position: Int) {
-                                        super.onPageSelected(position)
-                                        viewModel.onPageSelected(position)
-                                    }
-                                })
-
-                                // Set current item to match the view model state
-                                setCurrentItem(currentVideoIndex, false)
-
-                                // Save references
-                                viewPager = this
-                                viewPagerContainer = this
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { pager ->
-                            // Update the adapter if videos change
-                            (pager.adapter as? VideoAdapter)?.updateVideos(videos)
-
-                            // Update current position if it changes in the viewModel
-                            if (pager.currentItem != currentVideoIndex) {
-                                pager.setCurrentItem(currentVideoIndex, true)
-                            }
-                        }
-                    )
-
-                    // Apply enhanced swipe detector to the ViewPager
-                    DisposableEffect(viewPagerContainer) {
-                        val container = viewPagerContainer
-                        if (container != null) {
-                            container.setOnTouchListener(swipeDetector)
-                        }
-
-                        onDispose {
-                            container?.setOnTouchListener(null)
-                            swipeDetector.unregisterSensors()
-                        }
-                    }
-
-                    // Show swipe analytics overlay if debug info is enabled
-                    if (showDebugInfo && lastSwipeEvent != null) {
-                        val swipeAnalytics = lastSwipeEvent?.let { analyticsService.analyzeSwipe(it) }
-                        SwipeAnalyticsOverlay(
-                            swipeEvent = lastSwipeEvent,
-                            swipeAnalytics = swipeAnalytics,
-                            showDebugInfo = showDebugInfo
-                        )
-                    }
-                }
-            }
+        // Show swipe analytics overlay if debug info is enabled
+        if (showDebugInfo && lastSwipeEvent != null) {
+            val swipeAnalytics = lastSwipeEvent?.let { analyticsService.analyzeSwipe(it) }
+            SwipeAnalyticsOverlay(
+                swipeEvent = lastSwipeEvent,
+                swipeAnalytics = swipeAnalytics,
+                showDebugInfo = showDebugInfo
+            )
         }
     }
 }

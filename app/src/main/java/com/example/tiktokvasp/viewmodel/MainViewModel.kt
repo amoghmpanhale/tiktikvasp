@@ -21,6 +21,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val behaviorTracker = UserBehaviorTracker()
     private val dataExporter = DataExporter(application)
 
+    private val _participantId = MutableStateFlow("")
+    val participantId: StateFlow<String> = _participantId.asStateFlow()
+
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos.asStateFlow()
 
@@ -58,6 +61,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 startVideoViewTracking(localVideos.first().id)
             }
         }
+    }
+
+    fun setParticipantId(id: String) {
+        _participantId.value = id
     }
 
     /**
@@ -228,6 +235,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openUserProfile(videoId: String) {
         // Implementation for opening user profile
+    }
+
+    fun loadVideosFromFolder(folderName: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val folderVideos = repository.getVideosFromFolder(folderName)
+            _videos.value = folderVideos
+            _isLoading.value = false
+
+            if (folderVideos.isNotEmpty()) {
+                startVideoViewTracking(folderVideos.first().id)
+            }
+        }
     }
 
     override fun onCleared() {

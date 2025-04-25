@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +19,18 @@ import com.example.tiktokvasp.ui.theme.TiktokvaspTheme
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 
 class MainActivity : ComponentActivity() {
+
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                Log.d("MainActivity", "Manage External Storage permission granted!")
+                // Proceed with accessing external storage
+            } else {
+                Log.e("MainActivity", "Permission denied")
+            }
+        }
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -38,7 +52,7 @@ class MainActivity : ComponentActivity() {
 
         // Check for storage permission
         if (hasStoragePermission()) {
-            showMainScreen()
+            showApp()
         } else {
             requestStoragePermission()
         }
@@ -68,6 +82,34 @@ class MainActivity : ComponentActivity() {
         requestPermissionLauncher.launch(permissions)
     }
 
+    private fun showApp() {
+        setContent {
+            TiktokvaspTheme {
+                // Set up transparent status bar
+                val systemUiController = rememberSystemUiController()
+                val useDarkIcons = !isSystemInDarkTheme()
+
+                DisposableEffect(systemUiController, useDarkIcons) {
+                    systemUiController.setStatusBarColor(
+                        color = Color.Transparent,
+                        darkIcons = false
+                    )
+
+                    systemUiController.setNavigationBarColor(
+                        color = Color.Black,
+                        darkIcons = false
+                    )
+
+                    onDispose {}
+                }
+
+                // Use the AppNavigation composable instead of directly showing MainScreen
+                AppNavigation()
+            }
+        }
+    }
+
+    // In MainActivity.kt, replace the showMainScreen function with:
     private fun showMainScreen() {
         setContent {
             TiktokvaspTheme {
@@ -89,7 +131,8 @@ class MainActivity : ComponentActivity() {
                     onDispose {}
                 }
 
-                MainScreen()
+                // Use AppNavigation instead of directly showing MainScreen
+                AppNavigation()
             }
         }
     }

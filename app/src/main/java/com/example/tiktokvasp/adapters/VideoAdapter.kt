@@ -77,10 +77,18 @@ class VideoAdapter(
 
     inner class VideoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val playerView: PlayerView = itemView.findViewById(R.id.video_player)
+//        private val usernameTextView: TextView = itemView.findViewById(R.id.username)
         private val titleTextView: TextView = itemView.findViewById(R.id.video_title)
+//        private val videoCaptionTextView: TextView = itemView.findViewById(R.id.video_caption)
+        private val videoDescriptionTextView: TextView = itemView.findViewById(R.id.video_description)
         private val likeIcon: ImageView = itemView.findViewById(R.id.like_icon)
         private val commentIcon: ImageView = itemView.findViewById(R.id.comment_icon)
+        private val bookmarkIcon: ImageView = itemView.findViewById(R.id.bookmark_icon)
         private val shareIcon: ImageView = itemView.findViewById(R.id.share_icon)
+        private val likeCountTextView: TextView = itemView.findViewById(R.id.like_count)
+        private val commentCountTextView: TextView = itemView.findViewById(R.id.comment_count)
+        private val bookmarkCountTextView: TextView = itemView.findViewById(R.id.bookmark_count)
+        private val shareCountTextView: TextView = itemView.findViewById(R.id.share_count)
         private val avatar: ImageView = itemView.findViewById(R.id.avatar)
 
         private var player: ExoPlayer? = null
@@ -129,7 +137,7 @@ class VideoAdapter(
                 val mediaItem = MediaItem.fromUri(videoUri!!)
                 exoPlayer.setMediaItem(mediaItem)
                 exoPlayer.prepare()
-                exoPlayer.playWhenReady = false
+                exoPlayer.playWhenReady = true
                 exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
             }
         }

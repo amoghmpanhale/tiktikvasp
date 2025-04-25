@@ -97,17 +97,6 @@
                     android:src="@android:drawable/ic_menu_camera"
                     app:civ_border_color="@android:color/white"
                     app:civ_border_width="1dp" />
-
-                <ImageView
-                    android:id="@+id/follow_button"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="-8dp"
-                    android:background="@android:color/holo_red_light"
-                    android:padding="4dp"
-                    android:src="@android:drawable/ic_input_add"
-                    android:tint="@android:color/white" />
             </FrameLayout>
 
             <!-- Like button -->
@@ -123,7 +112,7 @@
                     android:id="@+id/like_icon"
                     android:layout_width="35dp"
                     android:layout_height="35dp"
-                    android:src="@android:drawable/star_big_off"
+                    android:src="@android:drawable/btn_star_big_off"
                     android:tint="@android:color/white" />
 
                 <TextView
@@ -131,9 +120,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
+                    android:text="650.1K"
                     android:textColor="@android:color/white"
-                    android:textSize="12sp"
-                    tools:text="12.5K" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- Comment button -->
@@ -157,9 +146,35 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
+                    android:text="1,186"
                     android:textColor="@android:color/white"
-                    android:textSize="12sp"
-                    tools:text="1.2K" />
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Bookmark button -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/bookmark_icon"
+                    android:layout_width="35dp"
+                    android:layout_height="35dp"
+                    android:src="@android:drawable/btn_star_big_off"
+                    android:tint="@android:color/white" />
+
+                <TextView
+                    android:id="@+id/bookmark_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="51.5K"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <!-- Share button -->
@@ -178,43 +193,14 @@
                     android:tint="@android:color/white" />
 
                 <TextView
-                    android:id="@+id/share_text"
+                    android:id="@+id/share_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
+                    android:text="80.6K"
                     android:textColor="@android:color/white"
-                    android:textSize="12sp"
-                    android:text="Share" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
-
-        <!-- Playing/Paused indicator in center -->
-        <ImageView
-            android:id="@+id/play_indicator"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_centerInParent="true"
-            android:alpha="0"
-            android:src="@android:drawable/ic_media_play"
-            android:tint="@android:color/white" />
-
-        <!-- Loading progress -->
-        <ProgressBar
-            android:id="@+id/loading_progress"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_centerInParent="true"
-            android:indeterminate="true"
-            android:visibility="gone" />
-
-        <!-- Double-tap like animation -->
-        <ImageView
-            android:id="@+id/heart_animation"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-            android:layout_centerInParent="true"
-            android:alpha="0"
-            android:src="@android:drawable/btn_star_big_on"
-            android:tint="@android:color/holo_red_light" />
     </RelativeLayout>
 </FrameLayout>

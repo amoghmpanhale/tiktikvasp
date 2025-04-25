@@ -13,6 +13,64 @@ import java.util.UUID
 
 class VideoRepository(private val context: Context) {
 
+    suspend fun getVideosFromFolder(folderName: String): List<Video> = withContext(Dispatchers.IO) {
+        val videos = mutableListOf<Video>()
+
+        try {
+            val contentResolver: ContentResolver = context.contentResolver
+            val uri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+
+            val projection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.DISPLAY_NAME,
+                MediaStore.Video.Media.DURATION,
+                MediaStore.Video.Media.RELATIVE_PATH
+            )
+
+            // Create a selection to filter videos by folder name
+            val selection = "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ?"
+            val selectionArgs = arrayOf("%$folderName%")  // Using LIKE for partial matching
+
+            val sortOrder = "${MediaStore.Video.Media.DATE_ADDED} DESC"
+
+            contentResolver.query(
+                uri,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val name = cursor.getString(nameColumn)
+                    val duration = cursor.getLong(durationColumn)
+
+                    val contentUri: Uri = ContentUris.withAppendedId(
+                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                        id
+                    )
+
+                    videos.add(
+                        Video(
+                            id = UUID.randomUUID().toString(),
+                            uri = contentUri,
+                            title = name,
+                            duration = duration
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("VideoRepository", "Error getting videos from folder", e)
+        }
+
+        return@withContext videos
+    }
+
     suspend fun getLocalVideos(): List<Video> = withContext(Dispatchers.IO) {
         val videos = mutableListOf<Video>()
 
