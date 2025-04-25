@@ -1,5 +1,6 @@
 package com.example.tiktokvasp.screens
 
+import android.util.Log
 import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,6 +122,9 @@ fun MainScreen(
                 }
 
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
+                    // Add this log statement:
+                    Log.d("MainScreen", "onDetailedSwipeDetected: swipeEvent = $swipeEvent")
+
                     // Record the swipe event in the view model
                     viewModel.trackDetailedSwipe(swipeEvent)
 

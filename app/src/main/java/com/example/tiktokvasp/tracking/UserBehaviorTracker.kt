@@ -118,7 +118,10 @@ data class SwipeEvent(
     val path: List<SwipePoint>,    // Full path of the swipe as a series of points
     val pressure: Float,           // Average touch pressure (if available)
     val screenWidth: Int,          // Screen width for normalization
-    val screenHeight: Int          // Screen height for normalization
+    val screenHeight: Int,          // Screen height for normalization
+    var velocities: List<Float> = emptyList(), // Velocity at each point
+    var accelerations: List<Float> = emptyList(), // Acceleration at each point
+    var timeElapsed: List<Long> = emptyList() // Time elapsed between points
 )
 
 // Point along the swipe path with timestamp for temporal analysis

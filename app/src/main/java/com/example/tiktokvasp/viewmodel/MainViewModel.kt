@@ -70,6 +70,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var currentVideoId: String? = null
     private var categoryFolder: String = ""
 
+    private val _swipeEvents = mutableListOf<SwipeEvent>()
+    private val _swipeAnalytics = mutableListOf<SwipeAnalytics>()
+    private val _lastSwipeEvent = MutableStateFlow<SwipeEvent?>(null)
+    val lastSwipeEvent: StateFlow<SwipeEvent?> = _lastSwipeEvent.asStateFlow()
+
     init {
         loadVideos()
     }
@@ -207,9 +212,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Send the event to the behavior tracker
             behaviorTracker.trackDetailedSwipe(swipeEvent)
 
-            // Generate analytics for this swipe
-            val analytics = analyticsService.analyzeSwipe(swipeEvent)
-            swipeAnalyticsMap[swipeEvent.id] = analytics
+            // Add this log statement:
+            Log.d("MainViewModel", "trackDetailedSwipe: swipeEvent = $swipeEvent")
+
+            // Analyze the swipe event
+            val swipeAnalytics = analyticsService.analyzeSwipe(swipeEvent)
+
+            // Add this log statement:
+            Log.d("MainViewModel", "trackDetailedSwipe: swipeAnalytics = $swipeAnalytics")
+
+            // Store the swipe event and analytics
+            _swipeEvents.add(swipeEvent)
+            _swipeAnalytics.add(swipeAnalytics)
+
+            // Update the last swipe event
+            _lastSwipeEvent.value = swipeEvent
+            swipeAnalyticsMap[swipeEvent.id] = swipeAnalytics
 
             // Generate PNG if auto-generation is enabled
             if (sessionManager?.isAutoGeneratePngsEnabled() == true) {
