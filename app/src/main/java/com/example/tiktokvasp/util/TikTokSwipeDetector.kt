@@ -61,7 +61,7 @@ class TikTokSwipeDetector(
     private val rotationSensor by lazy { sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) }
 
     // Configuration constants
-    private val SWIPE_THRESHOLD = 80f
+    private val SWIPE_THRESHOLD = 0f
     private val SWIPE_VELOCITY_THRESHOLD = 100f
     private val TRACKING_INTERVAL_MS = 5L  // Track points every 5ms for high-resolution data
 
@@ -130,27 +130,32 @@ class TikTokSwipeDetector(
                 }
             }
 
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isTracking) {
-                    Log.d("SwipeDetector", "→ ACTION_UP/CANCEL, finishing swipe")
                     addSwipePoint(event)
+
+                    // compute velocity
                     velocityTracker?.computeCurrentVelocity(1000)
                     val vx = velocityTracker?.xVelocity ?: 0f
                     val vy = velocityTracker?.yVelocity ?: 0f
 
+                    // total distance
                     val dx = event.rawX - startX
                     val dy = event.rawY - startY
-                    val dist = sqrt(dx*dx + dy*dy)
-                    if (dist > SWIPE_THRESHOLD) {
-                        val dir = calculateSwipeDirection(dx, dy)
-                        createDetailedSwipeEvent(
-                            endX = event.rawX,
-                            endY = event.rawY,
-                            velocityX = vx,
-                            velocityY = vy,
-                            direction = dir
-                        )
+                    val distance = sqrt(dx*dx + dy*dy)
+
+                    // 1) always create the detailed event for analytics
+                    val dir = calculateSwipeDirection(dx, dy)
+                    createDetailedSwipeEvent(
+                        endX = event.rawX,
+                        endY = event.rawY,
+                        velocityX = vx,
+                        velocityY = vy,
+                        direction = dir
+                    )
+
+                    // 2) only if the drag exceeds SWIPE_THRESHOLD do we tell the pager to move
+                    if (distance > SWIPE_THRESHOLD) {
                         when (dir) {
                             SwipeDirection.UP    -> listener?.onSwipeUp()
                             SwipeDirection.DOWN  -> listener?.onSwipeDown()
