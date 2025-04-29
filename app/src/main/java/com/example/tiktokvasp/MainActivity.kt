@@ -14,11 +14,49 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.lifecycleScope
+import com.example.tiktokvasp.adapters.VideoAdapter
 import com.example.tiktokvasp.screens.MainScreen
 import com.example.tiktokvasp.ui.theme.TiktokvaspTheme
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+
+    // Store reference to any active VideoAdapter for lifecycle management
+    private var activeVideoAdapter: VideoAdapter? = null
+
+    // Lifecycle observer to handle ExoPlayer lifecycle properly
+    private val lifecycleObserver = LifecycleEventObserver { _, event ->
+        when (event) {
+            Lifecycle.Event.ON_PAUSE -> {
+                Log.d("MainActivity", "Lifecycle: ON_PAUSE - pausing all video playback")
+                // Stop all playback when the app is paused
+                activeVideoAdapter?.let { adapter ->
+                    // Release all players when app goes to background
+                    adapter.releaseAllPlayers()
+                }
+            }
+            Lifecycle.Event.ON_STOP -> {
+                Log.d("MainActivity", "Lifecycle: ON_STOP - releasing all video resources")
+                // Make sure all players are released when app is stopped
+                activeVideoAdapter?.let { adapter ->
+                    adapter.releaseAllPlayers()
+                }
+            }
+            Lifecycle.Event.ON_DESTROY -> {
+                Log.d("MainActivity", "Lifecycle: ON_DESTROY - final cleanup")
+                // Final cleanup
+                activeVideoAdapter = null
+            }
+            else -> {
+                // No action needed for other lifecycle events
+            }
+        }
+    }
 
     override fun onResume() {
         super.onResume()
@@ -28,6 +66,16 @@ class MainActivity : ComponentActivity() {
                 // Proceed with accessing external storage
             } else {
                 Log.e("MainActivity", "Permission denied")
+            }
+        }
+
+        // Ensure no stale players are running from previous sessions
+        activeVideoAdapter?.let { adapter ->
+            Log.d("MainActivity", "onResume: refreshing adapter state")
+            // Give a small delay to let the UI settle before handling players
+            lifecycleScope.launch {
+                delay(500)
+                // The current player will be reinitialized when ViewPager rebuilds
             }
         }
     }
@@ -50,12 +98,26 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Register lifecycle observer
+        lifecycle.addObserver(lifecycleObserver)
+
         // Check for storage permission
         if (hasStoragePermission()) {
             showApp()
         } else {
             requestStoragePermission()
         }
+    }
+
+    override fun onDestroy() {
+        // Important: Remove lifecycle observer to avoid leaks
+        lifecycle.removeObserver(lifecycleObserver)
+
+        // Final cleanup
+        activeVideoAdapter?.releaseAllPlayers()
+        activeVideoAdapter = null
+
+        super.onDestroy()
     }
 
     private fun hasStoragePermission(): Boolean {
@@ -104,12 +166,17 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Use the AppNavigation composable instead of directly showing MainScreen
-                AppNavigation()
+                AppNavigation(
+                    onVideoAdapterCreated = { adapter ->
+                        // Store reference to the active adapter for lifecycle management
+                        activeVideoAdapter = adapter
+                        Log.d("MainActivity", "VideoAdapter reference captured")
+                    }
+                )
             }
         }
     }
 
-    // In MainActivity.kt, replace the showMainScreen function with:
     private fun showMainScreen() {
         setContent {
             TiktokvaspTheme {
@@ -132,7 +199,13 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Use AppNavigation instead of directly showing MainScreen
-                AppNavigation()
+                AppNavigation(
+                    onVideoAdapterCreated = { adapter ->
+                        // Store reference to the active adapter for lifecycle management
+                        activeVideoAdapter = adapter
+                        Log.d("MainActivity", "VideoAdapter reference captured")
+                    }
+                )
             }
         }
     }

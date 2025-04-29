@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tiktokvasp.adapters.VideoAdapter
 import com.example.tiktokvasp.screens.LandingScreen
 import com.example.tiktokvasp.screens.MainScreen
 import com.example.tiktokvasp.screens.SwipeAnalyticsDebugScreen
@@ -20,7 +21,9 @@ import com.example.tiktokvasp.viewmodel.MainViewModel
  * Main navigation component for the app
  */
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    onVideoAdapterCreated: (VideoAdapter) -> Unit = {}
+) {
     val navController = rememberNavController()
 
     // Create and remember ViewModels
@@ -57,7 +60,8 @@ fun AppNavigation() {
                     // Load the events from the main view model's tracker
                     debugViewModel.loadEventsFromTracker(mainViewModel.getBehaviorTracker())
                     navController.navigate(AppRoutes.DEBUG)
-                }
+                },
+                onVideoAdapterCreated = onVideoAdapterCreated
             )
         }
 

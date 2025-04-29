@@ -1,7 +1,9 @@
 package com.example.tiktokvasp.adapters
 
 import android.content.Context
+import android.graphics.Color
 import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +30,9 @@ class VideoAdapter(
     private val viewHolders = mutableMapOf<Int, VideoViewHolder>()
     private var currentPosition = 0
 
+    // Track all created ExoPlayers to ensure proper cleanup
+    private val allPlayers = mutableListOf<ExoPlayer>()
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.video_container, parent, false)
         return VideoViewHolder(view)
@@ -40,12 +45,17 @@ class VideoAdapter(
         // Start playing automatically if this is the current position
         if (position == currentPosition) {
             holder.play()
+        } else {
+            // Ensure other videos are paused
+            holder.pause()
         }
     }
 
     override fun getItemCount(): Int = videos.size
 
     fun updateVideos(newVideos: List<Video>) {
+        // Release all players before updating the video list
+        releaseAllPlayers()
         videos = newVideos
         notifyDataSetChanged()
     }
@@ -75,11 +85,26 @@ class VideoAdapter(
         }
     }
 
+    // Release all ExoPlayer instances to free resources and stop playback
+    fun releaseAllPlayers() {
+        Log.d("VideoAdapter", "Releasing ${allPlayers.size} ExoPlayer instances")
+        allPlayers.forEach { player ->
+            player.stop()
+            player.clearMediaItems()
+            player.release()
+        }
+        allPlayers.clear()
+
+        // Also release players in all ViewHolders
+        viewHolders.values.forEach { holder ->
+            holder.release()
+        }
+        viewHolders.clear()
+    }
+
     inner class VideoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val playerView: PlayerView = itemView.findViewById(R.id.video_player)
-//        private val usernameTextView: TextView = itemView.findViewById(R.id.username)
         private val titleTextView: TextView = itemView.findViewById(R.id.video_title)
-//        private val videoCaptionTextView: TextView = itemView.findViewById(R.id.video_caption)
         private val videoDescriptionTextView: TextView = itemView.findViewById(R.id.video_description)
         private val likeIcon: ImageView = itemView.findViewById(R.id.like_icon)
         private val commentIcon: ImageView = itemView.findViewById(R.id.comment_icon)
@@ -94,6 +119,7 @@ class VideoAdapter(
         private var player: ExoPlayer? = null
         private var videoUri: Uri? = null
         private var videoId: String = ""
+        private var mediaItem: MediaItem? = null
 
         init {
             setupClickListeners()
@@ -102,6 +128,7 @@ class VideoAdapter(
         private fun setupClickListeners() {
             likeIcon.setOnClickListener {
                 viewModel.likeVideo(videoId)
+                updateLikeStatus(true)
             }
 
             commentIcon.setOnClickListener {
@@ -110,6 +137,7 @@ class VideoAdapter(
 
             shareIcon.setOnClickListener {
                 viewModel.shareVideo(videoId)
+                updateShareStatus(true)
             }
 
             avatar.setOnClickListener {
@@ -127,68 +155,106 @@ class VideoAdapter(
             videoUri = Uri.parse(video.uri.toString())
             titleTextView.text = "@${video.title}"
 
-            // Initialize player if needed
-            if (player == null) {
-                initializePlayer()
-            }
+            // Update UI based on like/share status
+            updateLikeStatus(viewModel.isVideoLiked(videoId))
+            updateShareStatus(viewModel.isVideoShared(videoId))
 
-            // Prepare the video
+            // Release old player if it exists to avoid memory leaks
+            release()
+
+            // Initialize a new player
+            initializePlayer()
+
+            // Prepare the video but don't automatically start
             player?.let { exoPlayer ->
-                val mediaItem = MediaItem.fromUri(videoUri!!)
-                exoPlayer.setMediaItem(mediaItem)
+                mediaItem = MediaItem.fromUri(videoUri!!)
+                exoPlayer.setMediaItem(mediaItem!!)
                 exoPlayer.prepare()
-                exoPlayer.playWhenReady = true
+                exoPlayer.playWhenReady = false  // Don't play automatically
                 exoPlayer.repeatMode = Player.REPEAT_MODE_ONE
             }
         }
 
-        private fun initializePlayer() {
-            player = ExoPlayer.Builder(context).build().apply {
-                playWhenReady = true        // ← was false
-                repeatMode    = Player.REPEAT_MODE_ONE
+        private fun updateLikeStatus(isLiked: Boolean) {
+            if (isLiked) {
+                likeIcon.setColorFilter(Color.RED)
+            } else {
+                likeIcon.setColorFilter(Color.WHITE)
+            }
+        }
 
-                // Add listener to update UI when player state changes
+        private fun updateShareStatus(isShared: Boolean) {
+            if (isShared) {
+                shareIcon.setColorFilter(Color.CYAN)
+            } else {
+                shareIcon.setColorFilter(Color.WHITE)
+            }
+        }
+
+        private fun initializePlayer() {
+            // Create a new ExoPlayer instance
+            player = ExoPlayer.Builder(context).build().apply {
+                playWhenReady = false // Don't auto-play
+                repeatMode = Player.REPEAT_MODE_ONE
+
                 addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(state: Int) {
                         super.onPlaybackStateChanged(state)
                         when (state) {
                             Player.STATE_BUFFERING -> {
-                                // Show loading indicator
+                                Log.d("VideoAdapter", "Player STATE_BUFFERING")
                             }
                             Player.STATE_READY -> {
-                                // Hide loading indicator
+                                Log.d("VideoAdapter", "Player STATE_READY")
                             }
                             Player.STATE_ENDED -> {
-                                // Video ended, maybe restart it or show replay button
+                                Log.d("VideoAdapter", "Player STATE_ENDED")
                             }
                             Player.STATE_IDLE -> {
-                                // Uninitialized state
+                                Log.d("VideoAdapter", "Player STATE_IDLE")
                             }
                         }
                     }
                 })
             }
 
+            // Track this player for cleanup
+            player?.let {
+                allPlayers.add(it)
+                Log.d("VideoAdapter", "New ExoPlayer created, total: ${allPlayers.size}")
+            }
+
             playerView.player = player
         }
 
         fun play() {
+            Log.d("VideoAdapter", "Playing video at position $adapterPosition, id: $videoId")
             player?.playWhenReady = true
         }
 
         fun pause() {
+            Log.d("VideoAdapter", "Pausing video at position $adapterPosition, id: $videoId")
             player?.playWhenReady = false
         }
 
         fun togglePlayback() {
             player?.let {
-                it.playWhenReady = !it.playWhenReady
+                val newState = !it.playWhenReady
+                it.playWhenReady = newState
+                Log.d("VideoAdapter", "Toggle playback: ${if (newState) "PLAY" else "PAUSE"}")
             }
         }
 
         fun release() {
-            player?.release()
+            player?.let {
+                Log.d("VideoAdapter", "Releasing player for position $adapterPosition, id: $videoId")
+                it.stop()
+                it.clearMediaItems()
+                it.release()
+                allPlayers.remove(it)
+            }
             player = null
+            playerView.player = null
         }
     }
 
@@ -201,6 +267,8 @@ class VideoAdapter(
         super.onViewAttachedToWindow(holder)
         if (holder.adapterPosition == currentPosition) {
             holder.play()
+        } else {
+            holder.pause()
         }
     }
 

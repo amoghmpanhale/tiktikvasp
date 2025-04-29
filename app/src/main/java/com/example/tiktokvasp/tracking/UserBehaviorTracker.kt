@@ -12,6 +12,10 @@ class UserBehaviorTracker {
     private var swipeEvents = mutableListOf<SwipeEvent>()
     private var viewEvents = mutableListOf<ViewEvent>()
 
+    // Add maps to track likes and shares by video ID
+    private val videoLikes = mutableMapOf<String, Boolean>()
+    private val videoShares = mutableMapOf<String, Boolean>()
+
     /**
      * Track detailed swipe information from the EnhancedSwipeTracker
      */
@@ -75,11 +79,33 @@ class UserBehaviorTracker {
             timestamp = System.currentTimeMillis(),
             videoId = videoId,
             watchDurationMs = watchDurationMs,
-            watchPercentage = watchPercentage
+            watchPercentage = watchPercentage,
+            isLiked = videoLikes[videoId] ?: false,  // Include like status
+            isShared = videoShares[videoId] ?: false  // Include share status
         )
 
         viewEvents.add(event)
-        logEvent("View: Video: $videoId, Watched: $watchDurationMs ms (${watchPercentage * 100}%)")
+        logEvent("View: Video: $videoId, Watched: $watchDurationMs ms (${watchPercentage * 100}%), Liked: ${event.isLiked}, Shared: ${event.isShared}")
+    }
+
+    // Add functions to track likes and shares
+    fun trackVideoLike(videoId: String) {
+        videoLikes[videoId] = true
+        logEvent("Like: Video: $videoId")
+    }
+
+    fun trackVideoShare(videoId: String) {
+        videoShares[videoId] = true
+        logEvent("Share: Video: $videoId")
+    }
+
+    // Add functions to check if a video is liked or shared
+    fun isVideoLiked(videoId: String): Boolean {
+        return videoLikes[videoId] ?: false
+    }
+
+    fun isVideoShared(videoId: String): Boolean {
+        return videoShares[videoId] ?: false
     }
 
     private fun logEvent(message: String) {
@@ -138,5 +164,7 @@ data class ViewEvent(
     val timestamp: Long,
     val videoId: String,
     val watchDurationMs: Long,
-    val watchPercentage: Float
+    val watchPercentage: Float,
+    val isLiked: Boolean = false,  // Add this property
+    val isShared: Boolean = false  // Add this property
 )

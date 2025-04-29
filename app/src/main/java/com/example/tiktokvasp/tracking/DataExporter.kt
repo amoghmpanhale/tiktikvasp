@@ -84,10 +84,9 @@ class DataExporter(private val context: Context) {
                             // Get swipe pattern path if available
                             val patternPath = exitSwipe?.let { swipePatternPaths[it.id] } ?: ""
 
-                            // Determine if video was liked or shared (placeholder logic)
-                            // In a real app, this would be tracked in the ViewEvent
-                            val isLiked = "No" // Replace with actual data if tracked
-                            val isShared = "No" // Replace with actual data if tracked
+                            // Get like and share status from the view event
+                            val isLiked = if (view.isLiked) "Yes" else "No"
+                            val isShared = if (view.isShared) "Yes" else "No"
 
                             // Write the row
                             writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
@@ -264,6 +263,8 @@ class DataExporter(private val context: Context) {
                     put("videoId", event.videoId)
                     put("watchDurationMs", event.watchDurationMs)
                     put("watchPercentage", event.watchPercentage)
+                    put("isLiked", event.isLiked)
+                    put("isShared", event.isShared)
                 }
                 jsonArray.put(eventJson)
             }

@@ -1,3 +1,5 @@
+// Add this to app/src/main/java/com/example/tiktokvasp/viewmodel/MainViewModel.kt
+
 package com.example.tiktokvasp.viewmodel
 
 import android.app.Application
@@ -33,6 +35,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _videos = MutableStateFlow<List<Video>>(emptyList())
     val videos: StateFlow<List<Video>> = _videos.asStateFlow()
 
+    // Keep original list of videos for looping
+    private val _originalVideos = mutableListOf<Video>()
+
     private val _currentVideoIndex = MutableStateFlow(0)
     val currentVideoIndex: StateFlow<Int> = _currentVideoIndex.asStateFlow()
 
@@ -60,6 +65,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _avgSwipeVelocity = MutableStateFlow(0f)
     val avgSwipeVelocity: StateFlow<Float> = _avgSwipeVelocity.asStateFlow()
 
+    // Track liked videos
+    private val _likedVideos = MutableStateFlow<Set<String>>(emptySet())
+    val likedVideos: StateFlow<Set<String>> = _likedVideos.asStateFlow()
+
+    // Track shared videos
+    private val _sharedVideos = MutableStateFlow<Set<String>>(emptySet())
+    val sharedVideos: StateFlow<Set<String>> = _sharedVideos.asStateFlow()
+
     // Map to store all swipe analytics
     private val swipeAnalyticsMap = mutableMapOf<String, SwipeAnalytics>()
 
@@ -83,11 +96,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoading.value = true
             val localVideos = repository.getLocalVideos()
-            _videos.value = localVideos
+
+            // Store original videos
+            _originalVideos.clear()
+            _originalVideos.addAll(localVideos)
+
+            // Randomize and set the videos
+            val randomizedVideos = localVideos.shuffled()
+            _videos.value = randomizedVideos
+
             _isLoading.value = false
 
-            if (localVideos.isNotEmpty()) {
-                startVideoViewTracking(localVideos.first().id)
+            if (randomizedVideos.isNotEmpty()) {
+                startVideoViewTracking(randomizedVideos.first().id)
             }
         }
     }
@@ -129,6 +150,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         _isSessionActive.value = true
         _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
+    }
+
+    /**
+     * Check if we need to loop and handle videos
+     */
+    fun checkAndHandleLooping() {
+        val videos = _videos.value
+        val currentIndex = _currentVideoIndex.value
+
+        // If we've reached the end of the list and we have videos
+        if (currentIndex >= videos.size - 1 && videos.isNotEmpty()) {
+            // Create a new random order but don't repeat the last video first
+            val videosExceptLast = _originalVideos.filter { it.id != videos.last().id }
+            val newRandomVideos = if (videosExceptLast.isNotEmpty()) {
+                listOf(videosExceptLast.random()) + videosExceptLast.shuffled().filter { it.id != videosExceptLast.random().id }
+            } else {
+                _originalVideos.shuffled()
+            }
+
+            // Update the videos list with the new random order
+            _videos.value = newRandomVideos
+
+            // Reset index to 0
+            _currentVideoIndex.value = 0
+
+            // Start tracking the new first video
+            if (newRandomVideos.isNotEmpty()) {
+                startVideoViewTracking(newRandomVideos.first().id)
+            }
+        }
     }
 
     /**
@@ -273,7 +324,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (videos.isEmpty()) return
 
         val currentIndex = _currentVideoIndex.value
-        if (currentIndex < videos.size - 1) {
+
+        // Check if we're at the last video
+        if (currentIndex >= videos.size - 1) {
+            // Only perform basic tracking if not already handled by enhanced tracking
+            if (_totalTrackedSwipes.value == 0) {
+                trackSwipeEvent(SwipeDirection.UP)
+                endVideoViewTracking()
+            }
+
+            // Create a new randomized list and reset to beginning
+            checkAndHandleLooping()
+
+            // Update the session manager with the new video view
+            if (_videos.value.isNotEmpty()) {
+                sessionManager?.trackVideoView(_videos.value.first())
+            }
+        } else {
+            // Normal behavior for non-last videos
             // Only perform basic tracking if not already handled by enhanced tracking
             if (_totalTrackedSwipes.value == 0) {
                 trackSwipeEvent(SwipeDirection.UP)
@@ -360,9 +428,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun likeCurrentVideo() {
-        // Implementation for liking the current video
         currentVideoId?.let { videoId ->
-            // Add like functionality here
+            likeVideo(videoId)
         }
     }
 
@@ -373,7 +440,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun likeVideo(videoId: String) {
-        // Implementation for liking a video
+        // Track the like in the behavior tracker
+        behaviorTracker.trackVideoLike(videoId)
+
+        // Update the UI state
+        val currentLikes = _likedVideos.value.toMutableSet()
+        currentLikes.add(videoId)
+        _likedVideos.value = currentLikes
+
+        Log.d("MainViewModel", "Liked video: $videoId")
     }
 
     fun openComments(videoId: String) {
@@ -381,7 +456,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun shareVideo(videoId: String) {
-        // Implementation for sharing a video
+        // Track the share in the behavior tracker
+        behaviorTracker.trackVideoShare(videoId)
+
+        // Update the UI state
+        val currentShares = _sharedVideos.value.toMutableSet()
+        currentShares.add(videoId)
+        _sharedVideos.value = currentShares
+
+        Log.d("MainViewModel", "Shared video: $videoId")
     }
 
     fun openUserProfile(videoId: String) {
@@ -393,13 +476,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = true
             categoryFolder = folderName
             val folderVideos = repository.getVideosFromFolder(folderName)
-            _videos.value = folderVideos
+
+            // Store original videos
+            _originalVideos.clear()
+            _originalVideos.addAll(folderVideos)
+
+            // Randomize and set the videos
+            val randomizedVideos = folderVideos.shuffled()
+            _videos.value = randomizedVideos
+
             _isLoading.value = false
 
-            if (folderVideos.isNotEmpty()) {
-                startVideoViewTracking(folderVideos.first().id)
+            if (randomizedVideos.isNotEmpty()) {
+                startVideoViewTracking(randomizedVideos.first().id)
             }
         }
+    }
+
+    // Functions to check if a video is liked or shared
+    fun isVideoLiked(videoId: String): Boolean {
+        return _likedVideos.value.contains(videoId)
+    }
+
+    fun isVideoShared(videoId: String): Boolean {
+        return _sharedVideos.value.contains(videoId)
     }
 
     /**

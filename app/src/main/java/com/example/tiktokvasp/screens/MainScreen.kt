@@ -69,7 +69,8 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = viewModel(),
-    onOpenDebugScreen: () -> Unit = {}
+    onOpenDebugScreen: () -> Unit = {},
+    onVideoAdapterCreated: (VideoAdapter) -> Unit = {}
 ) {
     val videos by viewModel.videos.collectAsState()
     val currentVideoIndex by viewModel.currentVideoIndex.collectAsState()
@@ -89,9 +90,20 @@ fun MainScreen(
     var lastSwipeEvent by remember { mutableStateOf<SwipeEvent?>(null) }
     var showDebugInfo by remember { mutableStateOf(false) }
 
-    // Create the adapter when videos are loaded
+    // Create the adapter when videos are loaded and pass it back via the callback
     val videoAdapter = remember(videos) {
-        VideoAdapter(context, videos, viewModel)
+        VideoAdapter(context, videos, viewModel).also { adapter ->
+            // Notify when adapter is created
+            onVideoAdapterCreated(adapter)
+        }
+    }
+
+    // Ensure player cleanup when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            // Cleanup all players when the screen is disposed
+            videoAdapter.releaseAllPlayers()
+        }
     }
 
     // Create enhanced swipe detector
@@ -113,10 +125,15 @@ fun MainScreen(
                     Log.d("MainScreen","🎉 detailed swipe detected! $swipeEvent")
                     viewModel.trackDetailedSwipe(swipeEvent)
                     lastSwipeEvent = swipeEvent
+
+                    // Check for looping when swiping up at the end of videos
+                    if (swipeEvent.direction == SwipeDirection.UP &&
+                        currentVideoIndex >= videos.size - 1) {
+                        viewModel.checkAndHandleLooping()
+                    }
                 }
             })
         }
-
     }
 
     LaunchedEffect(videos, currentVideoIndex) {
@@ -171,6 +188,7 @@ fun MainScreen(
                                 registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
                                     override fun onPageSelected(pos: Int) {
                                         super.onPageSelected(pos)
+                                        Log.d("MainScreen", "Page selected: $pos")
                                         viewModel.onPageSelected(pos)
                                         swipeDetector.setCurrentVideoId(videos[pos].id)
                                         videoAdapter.updateCurrentPosition(pos)
@@ -209,33 +227,6 @@ fun MainScreen(
                             }
                             .fillMaxSize()
                     )
-
-                    // Apply enhanced swipe detector to the ViewPager
-//                    DisposableEffect(viewPager) {
-//                        // Grab the RecyclerView child if it exists right now
-//                        val rv = (viewPager?.getChildAt(0) as? RecyclerView)
-//                        rv?.setOnTouchListener(swipeDetector)
-//
-//                        // Listen for any future RecyclerView children being attached
-//                        val childAttachListener = object : RecyclerView.OnChildAttachStateChangeListener {
-//                            override fun onChildViewAttachedToWindow(child: View) {
-//                                if (child is RecyclerView) {
-//                                    child.setOnTouchListener(swipeDetector)
-//                                    Log.d("MainScreen", "attached detector to new RecyclerView child")
-//                                }
-//                            }
-//                            override fun onChildViewDetachedFromWindow(child: View) { /* no-op */ }
-//                        }
-//                        // Only add the listener if we have a RecyclerView now
-//                        rv?.addOnChildAttachStateChangeListener(childAttachListener)
-//
-//                        onDispose {
-//                            // Clean up the touch-listener and attach-listener
-//                            rv?.removeOnChildAttachStateChangeListener(childAttachListener)
-//                            rv?.setOnTouchListener(null)
-//                            swipeDetector.unregisterSensors()
-//                        }
-//                    }
 
                     // Add the TikTok top bar
                     TikTokTopBar(
