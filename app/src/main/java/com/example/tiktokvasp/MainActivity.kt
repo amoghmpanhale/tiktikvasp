@@ -147,28 +147,34 @@ class MainActivity : ComponentActivity() {
     private fun showApp() {
         setContent {
             TiktokvaspTheme {
-                // Set up transparent status bar
+                // Set up transparent system bars with proper insets handling
                 val systemUiController = rememberSystemUiController()
                 val useDarkIcons = !isSystemInDarkTheme()
 
                 DisposableEffect(systemUiController, useDarkIcons) {
+                    // Make status bar fully transparent and ensure content goes behind it
                     systemUiController.setStatusBarColor(
                         color = Color.Transparent,
                         darkIcons = false
                     )
 
+                    // Set navigation bar to be black
                     systemUiController.setNavigationBarColor(
                         color = Color.Black,
                         darkIcons = false
                     )
 
+                    // Hide the system bars for true edge-to-edge
+                    systemUiController.setSystemBarsColor(
+                        color = Color.Transparent
+                    )
+
                     onDispose {}
                 }
 
-                // Use the AppNavigation composable instead of directly showing MainScreen
+                // Use AppNavigation composable
                 AppNavigation(
                     onVideoAdapterCreated = { adapter ->
-                        // Store reference to the active adapter for lifecycle management
                         activeVideoAdapter = adapter
                         Log.d("MainActivity", "VideoAdapter reference captured")
                     }

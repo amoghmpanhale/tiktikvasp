@@ -157,6 +157,7 @@ fun MainScreen(
                 .fillMaxSize()
                 .background(Color.Black)
                 .padding(padding)
+                .statusBarsPadding()
         ) {
             when {
                 isLoading -> {
@@ -232,7 +233,6 @@ fun MainScreen(
                     TikTokTopBar(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .statusBarsPadding()
                     )
 
                     // Session timer overlay

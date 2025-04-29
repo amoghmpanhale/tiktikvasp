@@ -187,7 +187,7 @@ fun TikTokTopBar(modifier: Modifier = Modifier) {
             }
 
             // Main navigation items with proper spacing
-            Spacer(modifier = Modifier.width(16.dp))
+//            Spacer(modifier = Modifier.width(16.dp))
 
             Text(
                 text = "STEM",
