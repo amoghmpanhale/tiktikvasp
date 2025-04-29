@@ -28,6 +28,16 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedFolder = MutableStateFlow<String?>(null)
     val selectedFolder: StateFlow<String?> = _selectedFolder.asStateFlow()
 
+    // New properties for random stops
+    private val _randomStopsEnabled = MutableStateFlow(false)
+    val randomStopsEnabled: StateFlow<Boolean> = _randomStopsEnabled.asStateFlow()
+
+    private val _randomStopFrequency = MutableStateFlow(30) // Default 30 seconds
+    val randomStopFrequency: StateFlow<Int> = _randomStopFrequency.asStateFlow()
+
+    private val _randomStopDuration = MutableStateFlow(1000) // Default 1000ms
+    val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
+
     init {
         loadAvailableFolders()
     }
@@ -38,6 +48,19 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectFolder(folder: String) {
         _selectedFolder.value = folder
+    }
+
+    // New methods for random stops configuration
+    fun setRandomStopsEnabled(enabled: Boolean) {
+        _randomStopsEnabled.value = enabled
+    }
+
+    fun setRandomStopFrequency(seconds: Int) {
+        _randomStopFrequency.value = seconds
+    }
+
+    fun setRandomStopDuration(milliseconds: Int) {
+        _randomStopDuration.value = milliseconds
     }
 
     fun hasManageStoragePermission(): Boolean {

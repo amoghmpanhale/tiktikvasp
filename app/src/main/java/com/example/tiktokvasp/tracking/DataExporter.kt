@@ -41,7 +41,7 @@ class DataExporter(private val context: Context) {
             FileWriter(file).use { writer ->
                 // Write CSV header
                 writer.append("Participant ID,Category,Video Number,Video Name,Video Duration(ms),")
-                writer.append("Watch Duration(ms),Watch Percentage,Liked?,Shared?,")
+                writer.append("Watch Duration(ms),Watch Percentage,Liked?,Shared?,Commented?,")
                 writer.append("Swipe Pattern Image,Swipe Direction,Swipe Velocity(px/s),")
                 writer.append("Swipe Acceleration(px/s²),Swipe Regularity(%)\n")
 
@@ -69,7 +69,7 @@ class DataExporter(private val context: Context) {
                     // If there are no views or swipes, still record the video with empty data
                     if (views.isEmpty() && relevantSwipes.isEmpty()) {
                         writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
-                        writer.append("0,0,No,No,,,0,0,0\n")
+                        writer.append("0,0,No,No,No,,,0,0,0\n")
                     } else {
                         // Process each view event
                         views.forEach { view ->
@@ -84,13 +84,14 @@ class DataExporter(private val context: Context) {
                             // Get swipe pattern path if available
                             val patternPath = exitSwipe?.let { swipePatternPaths[it.id] } ?: ""
 
-                            // Get like and share status from the view event
+                            // Get like, share and comment status from the view event
                             val isLiked = if (view.isLiked) "Yes" else "No"
                             val isShared = if (view.isShared) "Yes" else "No"
+                            val hasCommented = if (view.hasCommented) "Yes" else "No"
 
                             // Write the row
                             writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
-                            writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,")
+                            writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,$hasCommented,")
 
                             if (exitSwipe != null && analytics != null) {
                                 writer.append("\"$patternPath\",${exitSwipe.direction},")
@@ -265,6 +266,7 @@ class DataExporter(private val context: Context) {
                     put("watchPercentage", event.watchPercentage)
                     put("isLiked", event.isLiked)
                     put("isShared", event.isShared)
+                    put("hasCommented", event.hasCommented)
                 }
                 jsonArray.put(eventJson)
             }

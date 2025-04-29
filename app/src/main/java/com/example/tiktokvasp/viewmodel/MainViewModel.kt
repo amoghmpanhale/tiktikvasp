@@ -1,5 +1,3 @@
-// Add this to app/src/main/java/com/example/tiktokvasp/viewmodel/MainViewModel.kt
-
 package com.example.tiktokvasp.viewmodel
 
 import android.app.Application
@@ -18,7 +16,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import android.util.Log
+import kotlin.random.Random
 import java.util.concurrent.TimeUnit
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -88,6 +90,67 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _lastSwipeEvent = MutableStateFlow<SwipeEvent?>(null)
     val lastSwipeEvent: StateFlow<SwipeEvent?> = _lastSwipeEvent.asStateFlow()
 
+    // Random Stops Properties
+    private val _randomStopsEnabled = MutableStateFlow(false)
+    val randomStopsEnabled: StateFlow<Boolean> = _randomStopsEnabled.asStateFlow()
+
+    private val _randomStopFrequency = MutableStateFlow(30) // Default 30 seconds
+    val randomStopFrequency: StateFlow<Int> = _randomStopFrequency.asStateFlow()
+
+    private val _randomStopDuration = MutableStateFlow(1000) // Default 1000ms
+    val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
+
+    private val _isRandomStopActive = MutableStateFlow(false)
+    val isRandomStopActive: StateFlow<Boolean> = _isRandomStopActive.asStateFlow()
+
+    private var randomStopJob: Job? = null
+    private val random = Random.Default
+
+    // Track commented videos
+    private val _commentedVideos = MutableStateFlow<Set<String>>(emptySet())
+    val commentedVideos: StateFlow<Set<String>> = _commentedVideos.asStateFlow()
+
+    // Track comment counts per video
+    private val _commentCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val commentCounts: StateFlow<Map<String, Int>> = _commentCounts.asStateFlow()
+
+    /**
+     * Record a comment on a video
+     */
+    fun commentOnVideo(videoId: String) {
+        // Mark this video as commented on
+        val currentComments = _commentedVideos.value.toMutableSet()
+        currentComments.add(videoId)
+        _commentedVideos.value = currentComments
+
+        // Increment comment count for this video
+        val currentCounts = _commentCounts.value.toMutableMap()
+        val currentCount = currentCounts[videoId] ?: 0
+        currentCounts[videoId] = currentCount + 1
+        _commentCounts.value = currentCounts
+
+        // Also open the comments UI
+        openComments(videoId)
+
+        behaviorTracker.trackVideoComment(videoId)
+
+        Log.d("MainViewModel", "Comment added to video: $videoId, total comments: ${currentCount + 1}")
+    }
+
+    /**
+     * Check if the user has commented on a video
+     */
+    fun hasCommentedOnVideo(videoId: String): Boolean {
+        return _commentedVideos.value.contains(videoId)
+    }
+
+    /**
+     * Get comment count for a video
+     */
+    fun getCommentCount(videoId: String): Int {
+        return _commentCounts.value[videoId] ?: 0
+    }
+
     init {
         loadVideos()
     }
@@ -118,13 +181,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Start a timed data collection session
+     * Start a timed data collection session with random stops configuration
      */
-    fun startSession(durationMinutes: Int, autoGeneratePngs: Boolean) {
+    fun startSession(
+        durationMinutes: Int,
+        autoGeneratePngs: Boolean,
+        randomStopsEnabled: Boolean = false,
+        randomStopFrequency: Int = 30,
+        randomStopDuration: Int = 1000
+    ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
             return
         }
+
+        // Configure random stops
+        configureRandomStops(randomStopsEnabled, randomStopFrequency, randomStopDuration)
 
         // Create session manager
         sessionManager = SessionManager(
@@ -137,7 +209,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             setOnSessionCompleteListener {
+                // End the session
                 _isSessionActive.value = false
+
+                // Stop random stops if enabled
+                stopRandomStopTimer()
+
                 _exportStatus.value = "Session completed. Exporting data..."
 
                 // Export data when session ends
@@ -149,6 +226,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _isSessionActive.value = true
+
+        // Start random stops timer if enabled
+        if (randomStopsEnabled) {
+            startRandomStopTimer()
+        }
+
         _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
     }
 
@@ -186,6 +269,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * End the current session
      */
     fun endSession() {
+        // Stop the random stops timer if it's running
+        stopRandomStopTimer()
+        _isRandomStopActive.value = false
+
+        // End video view tracking and the session
+        endVideoViewTracking()
         sessionManager?.endSession()
         _isSessionActive.value = false
     }
@@ -423,8 +512,92 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Configure random stops
+    fun configureRandomStops(enabled: Boolean, frequencySeconds: Int, durationMs: Int) {
+        _randomStopsEnabled.value = enabled
+        _randomStopFrequency.value = frequencySeconds
+        _randomStopDuration.value = durationMs
+
+        if (enabled && _isSessionActive.value) {
+            startRandomStopTimer()
+        } else {
+            stopRandomStopTimer()
+        }
+
+        Log.d(
+            "MainViewModel",
+            "Random stops configured: enabled=$enabled, frequency=${frequencySeconds}s, duration=${durationMs}ms"
+        )
+    }
+
+    // Start the random stop timer
+    private fun startRandomStopTimer() {
+        // Cancel any existing job
+        randomStopJob?.cancel()
+
+        // Start a new coroutine for random stops
+        randomStopJob = viewModelScope.launch {
+            Log.d("MainViewModel", "Starting random stop timer")
+
+            while (isActive && _randomStopsEnabled.value && _isSessionActive.value) {
+                // Calculate a random delay between 0.7x and 1.3x the frequency
+                val baseDelayMs = _randomStopFrequency.value * 1000L
+                val jitterFactor = 0.7f + random.nextFloat() * 0.6f // Between 0.7 and 1.3
+                val delayMs = (baseDelayMs * jitterFactor).toLong()
+
+                Log.d("MainViewModel", "Waiting ${delayMs}ms until next random stop")
+                delay(delayMs)
+
+                // Trigger a random stop if still enabled and session active
+                if (_randomStopsEnabled.value && _isSessionActive.value) {
+                    triggerRandomStop()
+                }
+            }
+        }
+    }
+
+    // Stop the random stop timer
+    private fun stopRandomStopTimer() {
+        Log.d("MainViewModel", "Stopping random stop timer")
+        randomStopJob?.cancel()
+        randomStopJob = null
+    }
+
+    // Trigger a random stop
+    private fun triggerRandomStop() {
+        viewModelScope.launch {
+            // Log the stop event
+            Log.d("MainViewModel", "Triggering random stop for ${_randomStopDuration.value}ms")
+
+            // Record current video playback status
+            val wasPlaying = _isPlaying.value
+
+            // Pause video playback
+            _isPlaying.value = false
+
+            // Show the overlay
+            _isRandomStopActive.value = true
+
+            // Wait for the configured duration
+            delay(_randomStopDuration.value.toLong())
+
+            // Hide the overlay
+            _isRandomStopActive.value = false
+
+            // Resume playback if it was playing before
+            _isPlaying.value = wasPlaying
+
+            // Log the completion
+            Log.d("MainViewModel", "Random stop completed")
+        }
+    }
+
+    // Update toggleVideoPlayback to handle random stops
     fun toggleVideoPlayback() {
-        _isPlaying.value = !_isPlaying.value
+        // Don't allow toggling if a random stop is active
+        if (!_isRandomStopActive.value) {
+            _isPlaying.value = !_isPlaying.value
+        }
     }
 
     fun likeCurrentVideo() {
@@ -516,5 +689,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         endSession()
         exportSessionData() // Export data when ViewModel is cleared
         super.onCleared()
+    }
+
+    fun unlikeVideo(videoId: String) {
+        // Update the UI state by removing from the set
+        val currentLikes = _likedVideos.value.toMutableSet()
+        currentLikes.remove(videoId)
+        _likedVideos.value = currentLikes
+
+        // You might want to track this in behavior tracker too
+        Log.d("MainViewModel", "Unliked video: $videoId")
     }
 }

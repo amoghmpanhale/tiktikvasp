@@ -120,6 +120,9 @@ class VideoAdapter(
         private var videoUri: Uri? = null
         private var videoId: String = ""
         private var mediaItem: MediaItem? = null
+        // Track double tap timing for like functionality
+        private var lastTapTime: Long = 0
+        private val doubleTapDelay: Long = 300 // ms
 
         init {
             setupClickListeners()
@@ -127,12 +130,20 @@ class VideoAdapter(
 
         private fun setupClickListeners() {
             likeIcon.setOnClickListener {
-                viewModel.likeVideo(videoId)
-                updateLikeStatus(true)
+                // Toggle like status
+                val currentLiked = viewModel.isVideoLiked(videoId)
+                if (currentLiked) {
+                    viewModel.unlikeVideo(videoId)
+                } else {
+                    viewModel.likeVideo(videoId)
+                }
+                // Update UI
+                updateLikeStatus(!currentLiked)
             }
 
             commentIcon.setOnClickListener {
                 viewModel.openComments(videoId)
+                updateCommentStatus(true)
             }
 
             shareIcon.setOnClickListener {
@@ -145,19 +156,37 @@ class VideoAdapter(
             }
 
             playerView.setOnClickListener {
-                // Toggle play/pause on tap
-                togglePlayback()
+                val now = System.currentTimeMillis()
+                if (now - lastTapTime < doubleTapDelay) {
+                    // Double tap detected - like the video
+                    val currentLiked = viewModel.isVideoLiked(videoId)
+                    if (!currentLiked) {
+                        viewModel.likeVideo(videoId)
+                        updateLikeStatus(true)
+                    }
+                    lastTapTime = 0 // Reset to prevent triple tap
+                } else {
+                    // Single tap - toggle play/pause
+                    lastTapTime = now
+                    togglePlayback()
+                }
             }
         }
 
         fun bind(video: Video) {
             videoId = video.id
             videoUri = Uri.parse(video.uri.toString())
-            titleTextView.text = "@${video.title}"
 
-            // Update UI based on like/share status
+            // Extract username from the video title using the specified pattern
+            // Look for text between ")" and "_"
+            val title = video.title
+            val username = extractUsername(title)
+            titleTextView.text = "@$username"
+
+            // Update UI based on like/share/comment status
             updateLikeStatus(viewModel.isVideoLiked(videoId))
             updateShareStatus(viewModel.isVideoShared(videoId))
+            updateCommentStatus(viewModel.hasCommentedOnVideo(videoId))
 
             // Release old player if it exists to avoid memory leaks
             release()
@@ -175,11 +204,32 @@ class VideoAdapter(
             }
         }
 
+        private fun extractUsername(title: String): String {
+            // Try to find text between ")" and "_"
+            val pattern = """\)(.+?)_""".toRegex()
+            val matchResult = pattern.find(title)
+
+            return if (matchResult != null && matchResult.groupValues.size > 1) {
+                matchResult.groupValues[1].trim()
+            } else {
+                // Fallback to just the title if pattern doesn't match
+                title
+            }
+        }
+
         private fun updateLikeStatus(isLiked: Boolean) {
             if (isLiked) {
                 likeIcon.setColorFilter(Color.RED)
             } else {
                 likeIcon.setColorFilter(Color.WHITE)
+            }
+        }
+
+        private fun updateCommentStatus(hasCommented: Boolean) {
+            if (hasCommented) {
+                commentIcon.setColorFilter(Color.YELLOW)
+            } else {
+                commentIcon.setColorFilter(Color.WHITE)
             }
         }
 

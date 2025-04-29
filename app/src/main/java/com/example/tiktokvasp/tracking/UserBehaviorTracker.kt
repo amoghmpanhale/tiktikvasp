@@ -12,9 +12,10 @@ class UserBehaviorTracker {
     private var swipeEvents = mutableListOf<SwipeEvent>()
     private var viewEvents = mutableListOf<ViewEvent>()
 
-    // Add maps to track likes and shares by video ID
+    // Add maps to track likes, shares, and comments by video ID
     private val videoLikes = mutableMapOf<String, Boolean>()
     private val videoShares = mutableMapOf<String, Boolean>()
+    private val videoComments = mutableMapOf<String, Boolean>()
 
     /**
      * Track detailed swipe information from the EnhancedSwipeTracker
@@ -81,31 +82,70 @@ class UserBehaviorTracker {
             watchDurationMs = watchDurationMs,
             watchPercentage = watchPercentage,
             isLiked = videoLikes[videoId] ?: false,  // Include like status
-            isShared = videoShares[videoId] ?: false  // Include share status
+            isShared = videoShares[videoId] ?: false,  // Include share status
+            hasCommented = videoComments[videoId] ?: false  // Include comment status
         )
 
         viewEvents.add(event)
-        logEvent("View: Video: $videoId, Watched: $watchDurationMs ms (${watchPercentage * 100}%), Liked: ${event.isLiked}, Shared: ${event.isShared}")
+        logEvent("View: Video: $videoId, Watched: $watchDurationMs ms (${watchPercentage * 100}%), Liked: ${event.isLiked}, Shared: ${event.isShared}, Commented: ${event.hasCommented}")
     }
 
-    // Add functions to track likes and shares
+    // Add functions to track likes, shares, and comments
     fun trackVideoLike(videoId: String) {
         videoLikes[videoId] = true
+        updateExistingViewEvents(videoId)
         logEvent("Like: Video: $videoId")
+    }
+
+    fun trackVideoUnlike(videoId: String) {
+        videoLikes[videoId] = false
+        updateExistingViewEvents(videoId)
+        logEvent("Unlike: Video: $videoId")
     }
 
     fun trackVideoShare(videoId: String) {
         videoShares[videoId] = true
+        updateExistingViewEvents(videoId)
         logEvent("Share: Video: $videoId")
     }
 
-    // Add functions to check if a video is liked or shared
+    fun trackVideoComment(videoId: String) {
+        videoComments[videoId] = true
+        updateExistingViewEvents(videoId)
+        logEvent("Comment: Video: $videoId")
+    }
+
+    // Update existing view events when likes, shares, or comments change
+    private fun updateExistingViewEvents(videoId: String) {
+        // Find the most recent view event for this video and update it
+        val latestViewEvent = viewEvents.lastOrNull { it.videoId == videoId }
+        latestViewEvent?.let { event ->
+            // Create an updated copy of the event
+            val updatedEvent = event.copy(
+                isLiked = videoLikes[videoId] ?: false,
+                isShared = videoShares[videoId] ?: false,
+                hasCommented = videoComments[videoId] ?: false
+            )
+
+            // Replace the old event with the updated one
+            val index = viewEvents.indexOf(event)
+            if (index >= 0) {
+                viewEvents[index] = updatedEvent
+            }
+        }
+    }
+
+    // Add functions to check if a video is liked, shared, or commented on
     fun isVideoLiked(videoId: String): Boolean {
         return videoLikes[videoId] ?: false
     }
 
     fun isVideoShared(videoId: String): Boolean {
         return videoShares[videoId] ?: false
+    }
+
+    fun hasCommentedOnVideo(videoId: String): Boolean {
+        return videoComments[videoId] ?: false
     }
 
     private fun logEvent(message: String) {
@@ -165,6 +205,7 @@ data class ViewEvent(
     val videoId: String,
     val watchDurationMs: Long,
     val watchPercentage: Float,
-    val isLiked: Boolean = false,  // Add this property
-    val isShared: Boolean = false  // Add this property
+    val isLiked: Boolean = false,
+    val isShared: Boolean = false,
+    val hasCommented: Boolean = false  // Added comment status
 )

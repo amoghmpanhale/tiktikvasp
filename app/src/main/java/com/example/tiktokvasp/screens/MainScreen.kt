@@ -55,6 +55,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.viewpager2.widget.ViewPager2
 import com.example.tiktokvasp.adapters.VideoAdapter
+import com.example.tiktokvasp.components.RandomStopOverlay
 import com.example.tiktokvasp.components.SwipeAnalyticsOverlay
 import com.example.tiktokvasp.components.TikTokBottomBar
 import com.example.tiktokvasp.components.TikTokTopBar
@@ -81,6 +82,9 @@ fun MainScreen(
     val context = LocalContext.current
     val analyticsService = remember { SwipeAnalyticsService() }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Get state for random stops
+    val isRandomStopActive by viewModel.isRandomStopActive.collectAsState()
 
     // State for ViewPager2 reference
     var viewPager by remember { mutableStateOf<ViewPager2?>(null) }
@@ -117,7 +121,13 @@ fun MainScreen(
                 override fun onSwipeRight() { /* no-op */ }
 
                 override fun onSingleTap()     { viewModel.toggleVideoPlayback() }
-                override fun onDoubleTap()     { viewModel.likeCurrentVideo() }
+                override fun onDoubleTap() {
+                    viewModel.currentVideoIndex.value.let { index ->
+                        if (videos.isNotEmpty() && index < videos.size) {
+                            viewModel.likeVideo(videos[index].id)
+                        }
+                    }
+                }
                 override fun onLongPress()     { /* … */ }
 
                 // still record detailed swipes for analytics
@@ -375,6 +385,11 @@ fun MainScreen(
                     swipeAnalytics = swipeAnalytics,
                     showDebugInfo = showDebugInfo
                 )
+            }
+
+            // Show random stop overlay when active
+            if (isRandomStopActive) {
+                RandomStopOverlay(showText = true)
             }
         }
     }
