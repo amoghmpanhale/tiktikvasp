@@ -102,6 +102,14 @@ class VideoAdapter(
         viewHolders.clear()
     }
 
+    fun updatePlaybackState(isPlaying: Boolean) {
+        if (isPlaying) {
+            playVideo(currentPosition)
+        } else {
+            pauseVideo(currentPosition)
+        }
+    }
+
     inner class VideoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val playerView: PlayerView = itemView.findViewById(R.id.video_player)
         private val titleTextView: TextView = itemView.findViewById(R.id.video_title)

@@ -36,10 +36,10 @@ fun LandingScreen(
 
     // Random stops configuration
     val randomStopsEnabled by viewModel.randomStopsEnabled.collectAsState()
-    val randomStopFrequency by viewModel.randomStopFrequency.collectAsState()
-    val randomStopDuration by viewModel.randomStopDuration.collectAsState()
-    var randomStopFreqEditor by remember { mutableStateOf(randomStopFrequency.toString()) }
-    var randomStopDurationEditor by remember { mutableStateOf(randomStopDuration.toString()) }
+
+    // Fixed values for random stops
+    val randomStopFrequency = 30 // Default value, won't be used
+    val randomStopDuration = 1000 // Fixed at 1000ms as requested
 
     Box(
         modifier = Modifier
@@ -137,23 +137,11 @@ fun LandingScreen(
                     )
                 }
 
-                // Random Stops Configuration
-                Text(
-                    text = "Random Stops Configuration",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentWidth(Alignment.Start)
-                        .padding(top = 24.dp, bottom = 8.dp)
-                )
-
-                // Random Stops Toggle
+                // Random Stops Toggle - Simplified
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -174,74 +162,6 @@ fun LandingScreen(
                         )
                     )
                 }
-
-                // Random Stops Frequency Input
-                OutlinedTextField(
-                    value = randomStopFreqEditor,
-                    onValueChange = {
-                        randomStopFreqEditor = it
-                        it.toIntOrNull()?.let { seconds ->
-                            if (seconds > 0) {
-                                viewModel.setRandomStopFrequency(seconds)
-                            }
-                        }
-                    },
-                    label = { Text("Frequency (seconds)") },
-                    placeholder = { Text("How often to show gray screen") },
-                    singleLine = true,
-                    enabled = randomStopsEnabled,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedBorderColor = Color(0xFFFF0050),
-                        unfocusedBorderColor = Color(0xFF3A3A3A),
-                        disabledTextColor = Color.Gray,
-                        disabledBorderColor = Color(0xFF3A3A3A),
-                        disabledContainerColor = Color.Transparent,
-                        focusedLabelColor = Color(0xFFFF0050),
-                        unfocusedLabelColor = Color.Gray,
-                        cursorColor = Color(0xFFFF0050)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                )
-
-                // Random Stops Duration Input
-                OutlinedTextField(
-                    value = randomStopDurationEditor,
-                    onValueChange = {
-                        randomStopDurationEditor = it
-                        it.toIntOrNull()?.let { ms ->
-                            if (ms > 0) {
-                                viewModel.setRandomStopDuration(ms)
-                            }
-                        }
-                    },
-                    label = { Text("Duration (milliseconds)") },
-                    placeholder = { Text("How long to show gray screen") },
-                    singleLine = true,
-                    enabled = randomStopsEnabled,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedBorderColor = Color(0xFFFF0050),
-                        unfocusedBorderColor = Color(0xFF3A3A3A),
-                        disabledTextColor = Color.Gray,
-                        disabledBorderColor = Color(0xFF3A3A3A),
-                        disabledContainerColor = Color.Transparent,
-                        focusedLabelColor = Color(0xFFFF0050),
-                        unfocusedLabelColor = Color.Gray,
-                        cursorColor = Color(0xFFFF0050)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                )
 
                 // Section title for folders
                 Text(

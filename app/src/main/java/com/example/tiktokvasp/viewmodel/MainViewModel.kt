@@ -187,8 +187,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         durationMinutes: Int,
         autoGeneratePngs: Boolean,
         randomStopsEnabled: Boolean = false,
-        randomStopFrequency: Int = 30,
-        randomStopDuration: Int = 1000
+        randomStopFrequency: Int = 30, // Not used, just keeping parameter for compatibility
+        randomStopDuration: Int = 1000 // Not used, fixed at 1000ms
     ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
@@ -196,7 +196,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Configure random stops
-        configureRandomStops(randomStopsEnabled, randomStopFrequency, randomStopDuration)
+        configureRandomStops(randomStopsEnabled)
 
         // Create session manager
         sessionManager = SessionManager(
@@ -512,11 +512,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Configure random stops
-    fun configureRandomStops(enabled: Boolean, frequencySeconds: Int, durationMs: Int) {
+    /**
+     * Configure random stops, just enabled/disabled now with fixed duration
+     */
+    fun configureRandomStops(enabled: Boolean) {
         _randomStopsEnabled.value = enabled
-        _randomStopFrequency.value = frequencySeconds
-        _randomStopDuration.value = durationMs
+        _randomStopDuration.value = 1000 // Fixed at 1000ms as requested
 
         if (enabled && _isSessionActive.value) {
             startRandomStopTimer()
@@ -526,11 +527,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(
             "MainViewModel",
-            "Random stops configured: enabled=$enabled, frequency=${frequencySeconds}s, duration=${durationMs}ms"
+            "Random stops configured: enabled=$enabled, duration=1000ms"
         )
     }
 
-    // Start the random stop timer
+    /**
+     * Start the random stop timer with random intervals
+     */
     private fun startRandomStopTimer() {
         // Cancel any existing job
         randomStopJob?.cancel()
@@ -540,10 +543,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Log.d("MainViewModel", "Starting random stop timer")
 
             while (isActive && _randomStopsEnabled.value && _isSessionActive.value) {
-                // Calculate a random delay between 0.7x and 1.3x the frequency
-                val baseDelayMs = _randomStopFrequency.value * 1000L
-                val jitterFactor = 0.7f + random.nextFloat() * 0.6f // Between 0.7 and 1.3
-                val delayMs = (baseDelayMs * jitterFactor).toLong()
+                // Random delay between 10-30 seconds
+                val delayMs = (10000 + random.nextInt(20000)).toLong()
 
                 Log.d("MainViewModel", "Waiting ${delayMs}ms until next random stop")
                 delay(delayMs)
@@ -563,13 +564,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         randomStopJob = null
     }
 
-    // Trigger a random stop
+    /**
+     * Trigger a random stop
+     */
     private fun triggerRandomStop() {
         viewModelScope.launch {
             // Log the stop event
-            Log.d("MainViewModel", "Triggering random stop for ${_randomStopDuration.value}ms")
+            Log.d("MainViewModel", "Triggering random stop for 1000ms")
 
-            // Record current video playback status
+            // Save current playback state
             val wasPlaying = _isPlaying.value
 
             // Pause video playback
@@ -578,8 +581,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Show the overlay
             _isRandomStopActive.value = true
 
-            // Wait for the configured duration
-            delay(_randomStopDuration.value.toLong())
+            // Wait for the fixed duration (1000ms)
+            delay(1000)
 
             // Hide the overlay
             _isRandomStopActive.value = false
@@ -587,7 +590,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Resume playback if it was playing before
             _isPlaying.value = wasPlaying
 
-            // Log the completion
             Log.d("MainViewModel", "Random stop completed")
         }
     }

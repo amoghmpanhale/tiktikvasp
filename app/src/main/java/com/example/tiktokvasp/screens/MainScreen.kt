@@ -102,12 +102,18 @@ fun MainScreen(
         }
     }
 
+    val isPlaying by viewModel.isPlaying.collectAsState()
+
     // Ensure player cleanup when leaving the screen
     DisposableEffect(Unit) {
         onDispose {
             // Cleanup all players when the screen is disposed
             videoAdapter.releaseAllPlayers()
         }
+    }
+
+    LaunchedEffect(isPlaying) {
+        videoAdapter.updatePlaybackState(isPlaying)
     }
 
     // Create enhanced swipe detector
@@ -389,7 +395,7 @@ fun MainScreen(
 
             // Show random stop overlay when active
             if (isRandomStopActive) {
-                RandomStopOverlay(showText = true)
+                RandomStopOverlay()
             }
         }
     }

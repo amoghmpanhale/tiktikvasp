@@ -28,15 +28,9 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedFolder = MutableStateFlow<String?>(null)
     val selectedFolder: StateFlow<String?> = _selectedFolder.asStateFlow()
 
-    // New properties for random stops
+    // Simplified random stops - just a toggle now
     private val _randomStopsEnabled = MutableStateFlow(false)
     val randomStopsEnabled: StateFlow<Boolean> = _randomStopsEnabled.asStateFlow()
-
-    private val _randomStopFrequency = MutableStateFlow(30) // Default 30 seconds
-    val randomStopFrequency: StateFlow<Int> = _randomStopFrequency.asStateFlow()
-
-    private val _randomStopDuration = MutableStateFlow(1000) // Default 1000ms
-    val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
 
     init {
         loadAvailableFolders()
@@ -50,17 +44,9 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
         _selectedFolder.value = folder
     }
 
-    // New methods for random stops configuration
+    // Simplified random stops setter
     fun setRandomStopsEnabled(enabled: Boolean) {
         _randomStopsEnabled.value = enabled
-    }
-
-    fun setRandomStopFrequency(seconds: Int) {
-        _randomStopFrequency.value = seconds
-    }
-
-    fun setRandomStopDuration(milliseconds: Int) {
-        _randomStopDuration.value = milliseconds
     }
 
     fun hasManageStoragePermission(): Boolean {
@@ -82,7 +68,6 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-
 
     private fun loadAvailableFolders() {
         viewModelScope.launch {
@@ -144,7 +129,6 @@ class LandingViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-
 
     private fun hasVideoFiles(directory: File): Boolean {
         val videoExtensions = listOf("mp4", "3gp", "mkv", "webm", "avi")
