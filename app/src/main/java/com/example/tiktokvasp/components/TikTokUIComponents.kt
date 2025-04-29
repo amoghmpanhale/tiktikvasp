@@ -13,14 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,12 +25,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.filled.ChatBubble
-import com.example.tiktokvasp.model.Video
-
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.example.tiktokvasp.R
+import com.example.tiktokvasp.model.Video
 
 @Composable
 fun TikTokOverlay(
@@ -88,10 +78,9 @@ fun TikTokOverlay(
                         .size(48.dp)
                         .clip(CircleShape)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
+                    Image(
+                        painter = painterResource(id = R.drawable.profile),
                         contentDescription = "Profile",
-                        tint = Color.White,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -104,10 +93,9 @@ fun TikTokOverlay(
                 IconButton(
                     onClick = { /* Do nothing */ }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
+                    Image(
+                        painter = painterResource(id = R.drawable.like),
                         contentDescription = "Like",
-                        tint = Color.White,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -126,10 +114,9 @@ fun TikTokOverlay(
                 IconButton(
                     onClick = { /* Do nothing */ }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ChatBubble,
+                    Image(
+                        painter = painterResource(id = R.drawable.comment),
                         contentDescription = "Comment",
-                        tint = Color.White,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -148,10 +135,9 @@ fun TikTokOverlay(
                 IconButton(
                     onClick = { /* Do nothing */ }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
+                    Image(
+                        painter = painterResource(id = R.drawable.share),
                         contentDescription = "Share",
-                        tint = Color.White,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -243,16 +229,15 @@ fun TikTokTopBar(modifier: Modifier = Modifier) {
                         .background(Color.White)
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Search icon
-            Icon(
-                imageVector = Icons.Filled.Search,
-                contentDescription = "Search",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
+//
+//            Spacer(modifier = Modifier.weight(1f))
+//
+//            // Search icon
+//            Image(
+//                painter = painterResource(id = R.drawable.search_icon),
+//                contentDescription = "Search",
+//                modifier = Modifier.size(28.dp)
+//            )
         }
     }
 }
@@ -275,10 +260,9 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
+                Image(
+                    painter = painterResource(id = R.drawable.home),
                     contentDescription = "Home",
-                    tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
@@ -291,10 +275,9 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.People,
+                Image(
+                    painter = painterResource(id = R.drawable.friends),
                     contentDescription = "Friends",
-                    tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
@@ -304,16 +287,15 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
                 )
             }
 
-            // Custom SVG-style Add button
+            // Custom Add button
             CustomAddButton()
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Email,
+                Image(
+                    painter = painterResource(id = R.drawable.inbox),
                     contentDescription = "Inbox",
-                    tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
@@ -326,10 +308,9 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
+                Image(
+                    painter = painterResource(id = R.drawable.profile),
                     contentDescription = "Profile",
-                    tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
@@ -348,7 +329,7 @@ fun CustomAddButton() {
         contentAlignment = Alignment.Center,
         modifier = Modifier.padding(vertical = 8.dp)
     ) {
-        // Use your PNG image instead of Canvas drawing
+        // Use your PNG image from the drawable folder
         Image(
             painter = painterResource(id = R.drawable.tiktok_add_button),
             contentDescription = "Create",
