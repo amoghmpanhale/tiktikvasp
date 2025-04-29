@@ -158,86 +158,91 @@ fun TikTokTopBar(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(50.dp)
-            .background(Color.Black.copy(alpha = 0.2f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 4.dp), // Reduced horizontal padding
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween // Changed to SpaceBetween for better distribution
         ) {
-            // LIVE button with SVG style
-            Box(
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .height(28.dp)
-                    .width(40.dp)
-                    .background(
-                        color = Color(0xFF0F0F0F),
-                        shape = RoundedCornerShape(4.dp)
-                    ),
-                contentAlignment = Alignment.Center
+            // Left section with main tabs
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = "LIVE",
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Main navigation items with proper spacing
-//            Spacer(modifier = Modifier.width(16.dp))
-
-            Text(
-                text = "STEM",
-                color = Color.White,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-
-            Text(
-                text = "Explore",
-                color = Color.White,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-
-            Text(
-                text = "Following",
-                color = Color.White,
-                fontSize = 15.sp,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            )
-
-            // For You with active indicator
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            ) {
-                Text(
-                    text = "For You",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
+                // LIVE button with SVG style
                 Box(
                     modifier = Modifier
-                        .width(20.dp)
-                        .height(2.dp)
-                        .background(Color.White)
+                        .padding(end = 6.dp) // Reduced padding
+                        .height(26.dp)
+                        .width(36.dp)
+                        .background(
+                            color = Color(0xFF0F0F0F),
+                            shape = RoundedCornerShape(4.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "LIVE",
+                        color = Color.White,
+                        fontSize = 11.sp, // Slightly reduced
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Main navigation items with minimal spacing
+                Text(
+                    text = "STEM",
+                    color = Color.White,
+                    fontSize = 14.sp, // Reduced size slightly
+                    modifier = Modifier.padding(horizontal = 6.dp) // Reduced padding
                 )
+
+                Text(
+                    text = "Explore",
+                    color = Color.White,
+                    fontSize = 14.sp, // Reduced size slightly
+                    modifier = Modifier.padding(horizontal = 6.dp) // Reduced padding
+                )
+
+                Text(
+                    text = "Following",
+                    color = Color.White,
+                    fontSize = 14.sp, // Reduced size slightly
+                    modifier = Modifier.padding(horizontal = 6.dp) // Reduced padding
+                )
+
+                // For You with active indicator
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 6.dp) // Reduced padding
+                ) {
+                    Text(
+                        text = "For You",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp, // Reduced size slightly
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(20.dp)
+                            .height(2.dp)
+                            .background(Color.White)
+                    )
+                }
             }
-//
-//            Spacer(modifier = Modifier.weight(1f))
-//
-//            // Search icon
-//            Image(
-//                painter = painterResource(id = R.drawable.search_icon),
-//                contentDescription = "Search",
-//                modifier = Modifier.size(28.dp)
-//            )
+
+            // Right section with search icon
+            Image(
+                painter = painterResource(id = R.drawable.search),
+                contentDescription = "Search",
+                modifier = Modifier
+                    .size(28.dp)
+                    .padding(end = 8.dp)
+            )
         }
     }
 }
@@ -263,7 +268,7 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
                 Image(
                     painter = painterResource(id = R.drawable.home),
                     contentDescription = "Home",
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(30.dp) // Increased from 24.dp
                 )
                 Text(
                     text = "Home",
@@ -278,7 +283,7 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
                 Image(
                     painter = painterResource(id = R.drawable.friends),
                     contentDescription = "Friends",
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(30.dp) // Increased from 24.dp
                 )
                 Text(
                     text = "Friends",
@@ -296,7 +301,7 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
                 Image(
                     painter = painterResource(id = R.drawable.inbox),
                     contentDescription = "Inbox",
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(30.dp) // Increased from 24.dp
                 )
                 Text(
                     text = "Inbox",
@@ -311,7 +316,7 @@ fun TikTokBottomBar(modifier: Modifier = Modifier) {
                 Image(
                     painter = painterResource(id = R.drawable.profile),
                     contentDescription = "Profile",
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(30.dp) // Increased from 24.dp
                 )
                 Text(
                     text = "Profile",

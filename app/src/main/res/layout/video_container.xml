@@ -110,8 +110,8 @@
 
                 <ImageView
                     android:id="@+id/like_icon"
-                    android:layout_width="35dp"
-                    android:layout_height="35dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
                     android:src="@drawable/like"
                     android:contentDescription="Like" />
 
@@ -136,8 +136,8 @@
 
                 <ImageView
                     android:id="@+id/comment_icon"
-                    android:layout_width="35dp"
-                    android:layout_height="35dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
                     android:src="@drawable/comment"
                     android:contentDescription="Comment" />
 
@@ -162,8 +162,8 @@
 
                 <ImageView
                     android:id="@+id/bookmark_icon"
-                    android:layout_width="35dp"
-                    android:layout_height="35dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
                     android:src="@drawable/bookmark"
                     android:contentDescription="Bookmark" />
 
@@ -187,8 +187,8 @@
 
                 <ImageView
                     android:id="@+id/share_icon"
-                    android:layout_width="35dp"
-                    android:layout_height="35dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
                     android:src="@drawable/share"
                     android:contentDescription="Share" />
 

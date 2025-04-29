@@ -240,7 +240,7 @@ fun MainScreen(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(top = 64.dp, end = 16.dp)
+                                .padding(top = 64.dp, end = 16.dp)  // Adjust this line
                                 .background(Color(0x80000000), RoundedCornerShape(8.dp))
                                 .border(1.dp, Color(0xFFFF0050), RoundedCornerShape(8.dp))
                                 .padding(8.dp)
