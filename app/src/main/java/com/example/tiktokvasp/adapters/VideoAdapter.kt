@@ -163,20 +163,24 @@ class VideoAdapter(
                 viewModel.openUserProfile(videoId)
             }
 
+            // Keep double-tap to like/unlike but remove single-tap to pause
             playerView.setOnClickListener {
                 val now = System.currentTimeMillis()
                 if (now - lastTapTime < doubleTapDelay) {
-                    // Double tap detected - like the video
+                    // Double tap detected - toggle like status
                     val currentLiked = viewModel.isVideoLiked(videoId)
-                    if (!currentLiked) {
+                    if (currentLiked) {
+                        viewModel.unlikeVideo(videoId)
+                        updateLikeStatus(false)
+                    } else {
                         viewModel.likeVideo(videoId)
                         updateLikeStatus(true)
                     }
                     lastTapTime = 0 // Reset to prevent triple tap
                 } else {
-                    // Single tap - toggle play/pause
+                    // Single tap - do nothing (remove pause functionality)
                     lastTapTime = now
-                    togglePlayback()
+                    // No longer toggle playback - videos should stay playing
                 }
             }
         }
@@ -293,14 +297,6 @@ class VideoAdapter(
         fun pause() {
             Log.d("VideoAdapter", "Pausing video at position $adapterPosition, id: $videoId")
             player?.playWhenReady = false
-        }
-
-        fun togglePlayback() {
-            player?.let {
-                val newState = !it.playWhenReady
-                it.playWhenReady = newState
-                Log.d("VideoAdapter", "Toggle playback: ${if (newState) "PLAY" else "PAUSE"}")
-            }
         }
 
         fun release() {

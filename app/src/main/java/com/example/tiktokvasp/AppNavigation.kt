@@ -68,7 +68,13 @@ fun AppNavigation(
                     debugViewModel.loadEventsFromTracker(mainViewModel.getBehaviorTracker())
                     navController.navigate(AppRoutes.DEBUG)
                 },
-                onVideoAdapterCreated = onVideoAdapterCreated
+                onVideoAdapterCreated = onVideoAdapterCreated,
+                onSessionComplete = {
+                    // Navigate back to landing screen when session completes
+                    navController.navigate(AppRoutes.LANDING) {
+                        popUpTo(AppRoutes.MAIN) { inclusive = true }
+                    }
+                }
             )
         }
 

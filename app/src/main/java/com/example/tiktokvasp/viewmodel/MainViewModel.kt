@@ -46,6 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // Videos should always be playing - remove toggle functionality
     private val _isPlaying = MutableStateFlow(true)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -97,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _randomStopFrequency = MutableStateFlow(30) // Default 30 seconds
     val randomStopFrequency: StateFlow<Int> = _randomStopFrequency.asStateFlow()
 
-    private val _randomStopDuration = MutableStateFlow(15000) // Default 1000ms
+    private val _randomStopDuration = MutableStateFlow(15000) // Default 15000ms
     val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
 
     private val _isRandomStopActive = MutableStateFlow(false)
@@ -188,7 +189,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         autoGeneratePngs: Boolean,
         randomStopsEnabled: Boolean = false,
         randomStopFrequency: Int = 30, // Not used, just keeping parameter for compatibility
-        randomStopDuration: Int = 15000 // Not used, fixed at 1000ms
+        randomStopDuration: Int = 15000 // Not used, fixed at 15000ms
     ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
@@ -231,8 +232,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (randomStopsEnabled) {
             startRandomStopTimer()
         }
-
-//        _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
     }
 
     /**
@@ -517,7 +516,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun configureRandomStops(enabled: Boolean) {
         _randomStopsEnabled.value = enabled
-        _randomStopDuration.value = 15000 // Fixed at 1000ms as requested
+        _randomStopDuration.value = 15000 // Fixed at 15000ms
 
         if (enabled && _isSessionActive.value) {
             startRandomStopTimer()
@@ -527,7 +526,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(
             "MainViewModel",
-            "Random stops configured: enabled=$enabled, duration=1000ms"
+            "Random stops configured: enabled=$enabled, duration=15000ms"
         )
     }
 
@@ -570,7 +569,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun triggerRandomStop() {
         viewModelScope.launch {
             // Log the stop event
-            Log.d("MainViewModel", "Triggering random stop for 1000ms")
+            Log.d("MainViewModel", "Triggering random stop for 15000ms")
 
             // Save current playback state
             val wasPlaying = _isPlaying.value
@@ -581,26 +580,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Show the overlay
             _isRandomStopActive.value = true
 
-            // Wait for the fixed duration (1000ms)
+            // Wait for the fixed duration (15000ms)
             delay(15000)
 
             // Hide the overlay
             _isRandomStopActive.value = false
 
-            // Resume playback if it was playing before
-            _isPlaying.value = wasPlaying
+            // Resume playback - videos should always be playing
+            _isPlaying.value = true
 
             Log.d("MainViewModel", "Random stop completed")
         }
     }
 
-    // Update toggleVideoPlayback to handle random stops
-    fun toggleVideoPlayback() {
-        // Don't allow toggling if a random stop is active
-        if (!_isRandomStopActive.value) {
-            _isPlaying.value = !_isPlaying.value
-        }
-    }
+    // Remove toggleVideoPlayback function - videos should not be pausable by user
 
     fun likeCurrentVideo() {
         currentVideoId?.let { videoId ->

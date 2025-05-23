@@ -109,7 +109,7 @@ class TikTokSwipeDetector(
                 startY = event.rawY
                 startTime = System.currentTimeMillis()
                 swipePoints.clear()
-                velocityTracker.start(event.rawX, event.rawY, System.currentTimeMillis()) // <-- NEW
+                velocityTracker.start(event.rawX, event.rawY, System.currentTimeMillis())
                 Log.d("SwipeDetector", "→ DOWN at ($startX,$startY)")
                 addSwipePoint(event)
             }
@@ -120,7 +120,7 @@ class TikTokSwipeDetector(
                     Log.d("SwipeDetector", "→ MOVE point")
                     addSwipePoint(event)
                 }
-                velocityTracker.update(event.rawX, event.rawY, System.currentTimeMillis()) // <-- NEW
+                velocityTracker.update(event.rawX, event.rawY, System.currentTimeMillis())
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (isTracking) {
@@ -139,8 +139,8 @@ class TikTokSwipeDetector(
                 createDetailedSwipeEvent(
                     event.rawX,
                     event.rawY,
-                    velocityX = velocityTracker.velocityX,   // <<<< USE tracked X velocity
-                    velocityY = velocityTracker.velocityY,   // <<<< USE tracked Y velocity
+                    velocityX = velocityTracker.velocityX,
+                    velocityY = velocityTracker.velocityY,
                     direction = dir
                 )
 
@@ -157,7 +157,6 @@ class TikTokSwipeDetector(
         return false
     }
 
-
     private fun addSwipePoint(event: MotionEvent) {
         val px = event.rawX
         val py = event.rawY
@@ -165,7 +164,6 @@ class TikTokSwipeDetector(
         swipePoints.add(p)
         Log.d("SwipeDetector","pt: x=$px y=$py pressure=${event.pressure}")
     }
-
 
     private fun calculateSwipeDirection(deltaX: Float, deltaY: Float): SwipeDirection {
         val angle = atan2(deltaY, deltaX) * 180 / Math.PI
@@ -185,7 +183,7 @@ class TikTokSwipeDetector(
         velocityY: Float,
         direction: SwipeDirection
     ) {
-        // if we don’t know what video we’re on, drop it
+        // if we don't know what video we're on, drop it
         if (currentVideoId == null) return
 
         // DEBUG: always log how many points we collected
@@ -197,7 +195,7 @@ class TikTokSwipeDetector(
         val distance = sqrt(deltaX*deltaX + deltaY*deltaY)
         val duration = System.currentTimeMillis() - startTime
 
-        // build the event (path may be just 2 points, but that’s fine)
+        // build the event (path may be just 2 points, but that's fine)
         val swipeEvent = SwipeEvent(
             id            = java.util.UUID.randomUUID().toString(),
             sessionId     = "",              // tracker will stamp this
@@ -221,7 +219,6 @@ class TikTokSwipeDetector(
         // fire it exactly once, unconditionally
         listener?.onDetailedSwipeDetected(swipeEvent)
     }
-
 
     // SensorEventListener implementation
     override fun onSensorChanged(event: SensorEvent) {
@@ -255,8 +252,9 @@ class TikTokSwipeDetector(
     private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent): Boolean = true
 
+        // Remove single tap functionality - videos should not be pausable
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-            listener?.onSingleTap()
+            // Do nothing - remove tap to pause functionality
             return true
         }
 

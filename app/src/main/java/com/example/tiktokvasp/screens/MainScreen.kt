@@ -71,7 +71,8 @@ import java.util.concurrent.TimeUnit
 fun MainScreen(
     viewModel: MainViewModel = viewModel(),
     onOpenDebugScreen: () -> Unit = {},
-    onVideoAdapterCreated: (VideoAdapter) -> Unit = {}
+    onVideoAdapterCreated: (VideoAdapter) -> Unit = {},
+    onSessionComplete: () -> Unit = {} // Add callback for session completion
 ) {
     val videos by viewModel.videos.collectAsState()
     val currentVideoIndex by viewModel.currentVideoIndex.collectAsState()
@@ -116,6 +117,14 @@ fun MainScreen(
         videoAdapter.updatePlaybackState(isPlaying)
     }
 
+    // Handle session completion - navigate back to landing screen
+    LaunchedEffect(isSessionActive) {
+        if (!isSessionActive && sessionTimeRemaining == 0L) {
+            // Session has ended, call the callback to navigate back
+            onSessionComplete()
+        }
+    }
+
     // Create enhanced swipe detector
     val swipeDetector = remember {
         TikTokSwipeDetector(context).apply {
@@ -126,11 +135,18 @@ fun MainScreen(
                 override fun onSwipeLeft()  { /* no-op */ }
                 override fun onSwipeRight() { /* no-op */ }
 
-                override fun onSingleTap()     { viewModel.toggleVideoPlayback() }
+                // Remove tap functionality - videos should not be pausable
+                override fun onSingleTap()     { /* no-op - remove tap to pause */ }
                 override fun onDoubleTap() {
                     viewModel.currentVideoIndex.value.let { index ->
                         if (videos.isNotEmpty() && index < videos.size) {
-                            viewModel.likeVideo(videos[index].id)
+                            val videoId = videos[index].id
+                            // Toggle like status on double tap
+                            if (viewModel.isVideoLiked(videoId)) {
+                                viewModel.unlikeVideo(videoId)
+                            } else {
+                                viewModel.likeVideo(videoId)
+                            }
                         }
                     }
                 }
