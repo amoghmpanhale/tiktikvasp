@@ -217,15 +217,15 @@ class VideoAdapter(
         }
 
         private fun extractUsername(title: String): String {
-            // Try to find text between ")" and "_"
-            val pattern = """\)(.+?)_""".toRegex()
-            val matchResult = pattern.find(title)
+            // Extract username as everything up to the first underscore followed by a number
+            val pattern = """_\d""".toRegex()
+            val match = pattern.find(title)
 
-            return if (matchResult != null && matchResult.groupValues.size > 1) {
-                matchResult.groupValues[1].trim()
+            return if (match != null) {
+                title.substring(0, match.range.first).trim()
             } else {
-                // Fallback to just the title if pattern doesn't match
-                title
+                // Fallback: if no underscore+number pattern found, remove file extension
+                title.substringBeforeLast('.').trim()
             }
         }
 

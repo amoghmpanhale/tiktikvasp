@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +25,7 @@ import com.example.tiktokvasp.viewmodel.LandingViewModel
 @Composable
 fun LandingScreen(
     viewModel: LandingViewModel = viewModel(),
-    onStartSession: (participantId: String, folderName: String, durationMinutes: Int, autoGeneratePngs: Boolean, randomStopsEnabled: Boolean, randomStopFrequency: Int, randomStopDuration: Int) -> Unit
+    onStartSession: (participantId: String, folderName: String, durationMinutes: Int, autoGeneratePngs: Boolean, randomStopsEnabled: Boolean, randomStopFrequency: Int, randomStopDuration: Int, minPauseDuration: Int) -> Unit
 ) {
     // Get state from ViewModel
     val availableFolders by viewModel.availableFolders.collectAsState()
@@ -36,10 +38,11 @@ fun LandingScreen(
 
     // Random stops configuration
     val randomStopsEnabled by viewModel.randomStopsEnabled.collectAsState()
+    var minPauseDurationText by remember { mutableStateOf("10") } // Default 10 seconds
 
     // Fixed values for random stops
     val randomStopFrequency = 30 // Default value, won't be used
-    val randomStopDuration = 15000 // Fixed at 1000ms as requested
+    val randomStopDuration = 15000 // Fixed at 15000ms as requested
 
     Box(
         modifier = Modifier
@@ -137,7 +140,7 @@ fun LandingScreen(
                     )
                 }
 
-                // Random Stops Toggle - Simplified
+                // Random Stops Toggle
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -160,6 +163,44 @@ fun LandingScreen(
                             uncheckedThumbColor = Color.Gray,
                             uncheckedTrackColor = Color(0xFF3A3A3A)
                         )
+                    )
+                }
+
+                // Minimum pause duration input (only show when random stops are enabled)
+                if (randomStopsEnabled) {
+                    OutlinedTextField(
+                        value = minPauseDurationText,
+                        onValueChange = { newValue ->
+                            // Only allow numbers
+                            if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                                minPauseDurationText = newValue
+                            }
+                        },
+                        label = { Text("Minimum seconds between pauses") },
+                        placeholder = { Text("10") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedBorderColor = Color(0xFFFF0050),
+                            unfocusedBorderColor = Color(0xFF3A3A3A),
+                            focusedLabelColor = Color(0xFFFF0050),
+                            unfocusedLabelColor = Color.Gray,
+                            cursorColor = Color(0xFFFF0050)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    )
+
+                    Text(
+                        text = "Random pauses will occur between 10-30 seconds, but not less than ${minPauseDurationText.ifEmpty { "10" }} seconds after the previous pause.",
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
                 }
 
@@ -241,6 +282,7 @@ fun LandingScreen(
                 Button(
                     onClick = {
                         if (participantId.isNotEmpty() && selectedFolder != null) {
+                            val minPauseDuration = minPauseDurationText.toIntOrNull() ?: 10
                             onStartSession(
                                 participantId,
                                 selectedFolder!!,
@@ -248,7 +290,8 @@ fun LandingScreen(
                                 autoGeneratePngs,
                                 randomStopsEnabled,
                                 randomStopFrequency,
-                                randomStopDuration
+                                randomStopDuration,
+                                minPauseDuration
                             )
                         }
                     },

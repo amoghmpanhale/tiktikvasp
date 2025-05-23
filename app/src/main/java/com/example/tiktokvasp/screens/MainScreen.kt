@@ -130,14 +130,37 @@ fun MainScreen(
         TikTokSwipeDetector(context).apply {
             setOnSwipeListener(object : TikTokSwipeDetector.OnSwipeListener {
                 // ← swallow the simple up/down gestures so ViewPager2 handles them:
-                override fun onSwipeUp()    { /* no-op */ }
-                override fun onSwipeDown()  { /* no-op */ }
-                override fun onSwipeLeft()  { /* no-op */ }
-                override fun onSwipeRight() { /* no-op */ }
+                override fun onSwipeUp()    {
+                    // Block swipes during random stops
+                    if (isRandomStopActive) return
+                    /* no-op */
+                }
+                override fun onSwipeDown()  {
+                    // Block swipes during random stops
+                    if (isRandomStopActive) return
+                    /* no-op */
+                }
+                override fun onSwipeLeft()  {
+                    // Block swipes during random stops
+                    if (isRandomStopActive) return
+                    /* no-op */
+                }
+                override fun onSwipeRight() {
+                    // Block swipes during random stops
+                    if (isRandomStopActive) return
+                    /* no-op */
+                }
 
                 // Remove tap functionality - videos should not be pausable
-                override fun onSingleTap()     { /* no-op - remove tap to pause */ }
+                override fun onSingleTap()     {
+                    // Block taps during random stops
+                    if (isRandomStopActive) return
+                    /* no-op - remove tap to pause */
+                }
                 override fun onDoubleTap() {
+                    // Block double taps during random stops
+                    if (isRandomStopActive) return
+
                     viewModel.currentVideoIndex.value.let { index ->
                         if (videos.isNotEmpty() && index < videos.size) {
                             val videoId = videos[index].id
@@ -150,10 +173,17 @@ fun MainScreen(
                         }
                     }
                 }
-                override fun onLongPress()     { /* … */ }
+                override fun onLongPress()     {
+                    // Block long press during random stops
+                    if (isRandomStopActive) return
+                    /* … */
+                }
 
                 // still record detailed swipes for analytics
                 override fun onDetailedSwipeDetected(swipeEvent: SwipeEvent) {
+                    // Block detailed swipe detection during random stops
+                    if (isRandomStopActive) return
+
                     Log.d("MainScreen","🎉 detailed swipe detected! $swipeEvent")
                     viewModel.trackDetailedSwipe(swipeEvent)
                     lastSwipeEvent = swipeEvent
@@ -217,6 +247,9 @@ fun MainScreen(
                             registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
                                 override fun onPageSelected(pos: Int) {
                                     super.onPageSelected(pos)
+                                    // Block page changes during random stops
+                                    if (isRandomStopActive) return
+
                                     Log.d("MainScreen", "Page selected: $pos")
                                     viewModel.onPageSelected(pos)
                                     swipeDetector.setCurrentVideoId(videos[pos].id)
@@ -230,6 +263,9 @@ fun MainScreen(
                                 (getChildAt(0) as? RecyclerView)?.let { rv ->
                                     Log.d("MainScreen","📌 attaching swipeDetector to RecyclerView in factory → $rv")
                                     rv.setOnTouchListener { v, ev ->
+                                        // Block touch events during random stops
+                                        if (isRandomStopActive) return@setOnTouchListener true
+
                                         swipeDetector.onTouch(v, ev)
                                         // return false so RecyclerView/ViewPager2 still handles scrolling
                                         false
@@ -249,6 +285,9 @@ fun MainScreen(
                     },
                     modifier = Modifier
                         .pointerInteropFilter { motionEvent ->
+                            // Block all pointer events during random stops
+                            if (isRandomStopActive) return@pointerInteropFilter true
+
                             // send every event into your detector
                             swipeDetector.onTouch(viewPager, motionEvent)
                             // return false so ViewPager2 still scrolls normally
@@ -285,7 +324,7 @@ fun MainScreen(
             )
         }
 
-        // Show random stop overlay when active
+        // Show random stop overlay when active - this should be on top of everything
         if (isRandomStopActive) {
             RandomStopOverlay()
         }

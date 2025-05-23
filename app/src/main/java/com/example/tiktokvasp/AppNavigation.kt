@@ -38,18 +38,19 @@ fun AppNavigation(
         composable(AppRoutes.LANDING) {
             LandingScreen(
                 onStartSession = { participantId, folderName, durationMinutes, autoGeneratePngs,
-                                   randomStopsEnabled, randomStopFrequency, randomStopDuration ->
+                                   randomStopsEnabled, randomStopFrequency, randomStopDuration, minPauseDuration ->
                     // Set participant and folder
                     mainViewModel.setParticipantId(participantId)
                     mainViewModel.loadVideosFromFolder(folderName)
 
-                    // Start the timed session using the parameters
+                    // Start the timed session using the parameters including minPauseDuration
                     mainViewModel.startSession(
                         durationMinutes,
                         autoGeneratePngs,
                         randomStopsEnabled,
                         randomStopFrequency,
-                        randomStopDuration
+                        randomStopDuration,
+                        minPauseDuration
                     )
 
                     // Navigate to the main screen

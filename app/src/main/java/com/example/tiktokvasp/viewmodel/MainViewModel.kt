@@ -101,11 +101,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _randomStopDuration = MutableStateFlow(15000) // Default 15000ms
     val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
 
+    // #region Minimum pause duration
+    private val _minPauseDuration = MutableStateFlow(10) // Default 10 seconds
+    val minPauseDuration: StateFlow<Int> = _minPauseDuration.asStateFlow()
+    // #endregion
+
     private val _isRandomStopActive = MutableStateFlow(false)
     val isRandomStopActive: StateFlow<Boolean> = _isRandomStopActive.asStateFlow()
 
     private var randomStopJob: Job? = null
     private val random = Random.Default
+
+    // Track the last pause timestamp
+    private var lastPauseTimestamp = 0L
 
     // Track commented videos
     private val _commentedVideos = MutableStateFlow<Set<String>>(emptySet())
@@ -189,12 +197,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         autoGeneratePngs: Boolean,
         randomStopsEnabled: Boolean = false,
         randomStopFrequency: Int = 30, // Not used, just keeping parameter for compatibility
-        randomStopDuration: Int = 15000 // Not used, fixed at 15000ms
+        randomStopDuration: Int = 15000, // Not used, fixed at 15000ms
+        minPauseDuration: Int = 10 // New parameter for minimum pause duration
     ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
             return
         }
+
+        // Store the minimum pause duration
+        _minPauseDuration.value = minPauseDuration
 
         // Configure random stops
         configureRandomStops(randomStopsEnabled)
@@ -526,12 +538,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(
             "MainViewModel",
-            "Random stops configured: enabled=$enabled, duration=15000ms"
+            "Random stops configured: enabled=$enabled, duration=15000ms, minPauseDuration=${_minPauseDuration.value}s"
         )
     }
 
     /**
-     * Start the random stop timer with random intervals
+     * Start the random stop timer with random intervals but respecting minimum pause duration
      */
     private fun startRandomStopTimer() {
         // Cancel any existing job
@@ -539,14 +551,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Start a new coroutine for random stops
         randomStopJob = viewModelScope.launch {
-            Log.d("MainViewModel", "Starting random stop timer")
+            Log.d("MainViewModel", "Starting random stop timer with minimum pause duration: ${_minPauseDuration.value}s")
 
             while (isActive && _randomStopsEnabled.value && _isSessionActive.value) {
                 // Random delay between 10-30 seconds
-                val delayMs = (10000 + random.nextInt(20000)).toLong()
+                val baseDelayMs = (10000 + random.nextInt(20000)).toLong()
 
-                Log.d("MainViewModel", "Waiting ${delayMs}ms until next random stop")
-                delay(delayMs)
+                // Check if we need to wait longer due to minimum pause duration
+                val currentTime = System.currentTimeMillis()
+                val timeSinceLastPause = currentTime - lastPauseTimestamp
+                val minPauseDurationMs = _minPauseDuration.value * 1000L
+
+                val finalDelayMs = if (lastPauseTimestamp > 0 && timeSinceLastPause < minPauseDurationMs) {
+                    // We need to wait longer to respect minimum pause duration
+                    val additionalWait = minPauseDurationMs - timeSinceLastPause
+                    maxOf(baseDelayMs, additionalWait)
+                } else {
+                    baseDelayMs
+                }
+
+                Log.d("MainViewModel", "Waiting ${finalDelayMs}ms until next random stop (base: ${baseDelayMs}ms, min pause: ${_minPauseDuration.value}s)")
+                delay(finalDelayMs)
 
                 // Trigger a random stop if still enabled and session active
                 if (_randomStopsEnabled.value && _isSessionActive.value) {
@@ -568,8 +593,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private fun triggerRandomStop() {
         viewModelScope.launch {
+            // Record the timestamp of this pause
+            lastPauseTimestamp = System.currentTimeMillis()
+
             // Log the stop event
-            Log.d("MainViewModel", "Triggering random stop for 15000ms")
+            Log.d("MainViewModel", "Triggering random stop for 15000ms (last pause: ${lastPauseTimestamp})")
 
             // Save current playback state
             val wasPlaying = _isPlaying.value
