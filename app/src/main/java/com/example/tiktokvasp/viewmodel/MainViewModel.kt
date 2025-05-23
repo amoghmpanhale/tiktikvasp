@@ -232,7 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             startRandomStopTimer()
         }
 
-        _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
+//        _exportStatus.value = "Session started. Duration: $durationMinutes minutes"
     }
 
     /**

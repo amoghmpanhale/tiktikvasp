@@ -165,238 +165,119 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .padding(padding)
-                .statusBarsPadding()
-        ) {
-            when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Color.White
-                    )
-                }
-
-                videos.isEmpty() -> {
-                    Text(
-                        text = "No videos found. Please add videos to your device.",
-                        color = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(16.dp)
-                    )
-                }
-
-                else -> {
-                    // ViewPager2 implementation with vertical swiping
-                    AndroidView(
-                        factory = { ctx ->
-                            ViewPager2(ctx).apply {
-                                viewPager = this
-                                adapter = videoAdapter
-                                orientation = ViewPager2.ORIENTATION_VERTICAL
-
-                                registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
-                                    override fun onPageSelected(pos: Int) {
-                                        super.onPageSelected(pos)
-                                        Log.d("MainScreen", "Page selected: $pos")
-                                        viewModel.onPageSelected(pos)
-                                        swipeDetector.setCurrentVideoId(videos[pos].id)
-                                        videoAdapter.updateCurrentPosition(pos)
-                                    }
-                                })
-
-                                // ensure the internal RecyclerView exists, then hook the detector
-                                post {
-                                    // The first (and only) child of ViewPager2 is its RecyclerView
-                                    (getChildAt(0) as? RecyclerView)?.let { rv ->
-                                        Log.d("MainScreen","📌 attaching swipeDetector to RecyclerView in factory → $rv")
-                                        rv.setOnTouchListener { v, ev ->
-                                            swipeDetector.onTouch(v, ev)
-                                            // return false so RecyclerView/ViewPager2 still handles scrolling
-                                            false
-                                        }
-                                    }
-                                }
-
-                                setCurrentItem(currentVideoIndex, false)
-                            }
-                        },
-                        update = { pager ->
-                            viewPager = pager
-                            (pager.adapter as? VideoAdapter)?.updateVideos(videos)
-                            if (pager.currentItem != currentVideoIndex) {
-                                pager.setCurrentItem(currentVideoIndex, true)
-                            }
-                        },
-                        modifier = Modifier
-                            .pointerInteropFilter { motionEvent ->
-                                // send every event into your detector
-                                swipeDetector.onTouch(viewPager, motionEvent)
-                                // return false so ViewPager2 still scrolls normally
-                                false
-                            }
-                            .fillMaxSize()
-                    )
-
-                    // Add the TikTok top bar
-                    TikTokTopBar(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                    )
-
-//                    // Session timer overlay
-//                    if (isSessionActive) {
-//                        Box(
-//                            modifier = Modifier
-//                                .align(Alignment.TopEnd)
-//                                .padding(top = 64.dp, end = 16.dp)  // Adjust this line
-//                                .background(Color(0x80000000), RoundedCornerShape(8.dp))
-//                                .border(1.dp, Color(0xFFFF0050), RoundedCornerShape(8.dp))
-//                                .padding(8.dp)
-//                        ) {
-//                            Row(verticalAlignment = Alignment.CenterVertically) {
-//                                Icon(imageVector = Icons.Default.Timer, contentDescription = null)
-//                                Spacer(Modifier.width(4.dp))
-//                                // format the live-updating state:
-//                                val mins = TimeUnit.MILLISECONDS.toMinutes(sessionTimeRemaining)
-//                                val secs = TimeUnit.MILLISECONDS.toSeconds(sessionTimeRemaining) % 60
-//                                Text(
-//                                    text = String.format("%02d:%02d", mins, secs),
-//                                    color = Color.White,
-//                                    fontWeight = FontWeight.Bold
-//                                )
-//                            }
-//                        }
-//                    }
-                }
-            }
-
-            // Bottom navigation bar
-            TikTokBottomBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-            )
-
-            // Action buttons row at the bottom
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 64.dp)
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-//                    // Session control button
-//                    Button(
-//                        onClick = {
-//                            if (isSessionActive) {
-//                                viewModel.endSession()
-//                            } else {
-//                                viewModel.exportSessionData()
-//                            }
-//                        },
-//                        colors = ButtonDefaults.buttonColors(
-//                            containerColor = if (isSessionActive) Color(0xFFFF4444) else Color(0xFF00AAFF)
-//                        ),
-//                        modifier = Modifier.weight(1f)
-//                    ) {
-//                        Icon(
-//                            imageVector = if (isSessionActive) Icons.Default.TimerOff else Icons.Default.Download,
-//                            contentDescription = if (isSessionActive) "End Session" else "Export Data"
-//                        )
-//
-//                        Spacer(modifier = Modifier.width(4.dp))
-//
-//                        Text(
-//                            text = if (isSessionActive) "End Session" else "Export Data",
-//                            color = Color.White
-//                        )
-//                    }
-//
-//                    Spacer(modifier = Modifier.width(8.dp))
-//
-//                    // Generate PNG button (only for last swipe)
-//                    Button(
-//                        onClick = {
-//                            lastSwipeEvent?.let { viewModel.generateSwipePatternPng(it.id) }
-//                        },
-//                        enabled = lastSwipeEvent != null,
-//                        colors = ButtonDefaults.buttonColors(
-//                            containerColor = Color(0xFF00CC66)
-//                        ),
-//                        modifier = Modifier.weight(1f)
-//                    ) {
-//                        Icon(
-//                            imageVector = Icons.Default.Camera,
-//                            contentDescription = "Generate Swipe PNG"
-//                        )
-//
-//                        Spacer(modifier = Modifier.width(4.dp))
-//
-//                        Text(
-//                            text = "Save Swipe",
-//                            color = Color.White
-//                        )
-//                    }
-                }
-
-                // Status text
-//                if (exportStatus.isNotEmpty()) {
-//                    Spacer(modifier = Modifier.height(8.dp))
-//
-//                    Text(
-//                        text = exportStatus,
-//                        color = Color.White,
-//                        fontSize = 12.sp,
-//                        textAlign = TextAlign.Center,
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .background(Color(0x80000000), RoundedCornerShape(4.dp))
-//                            .padding(4.dp)
-//                    )
-//                }
-            }
-
-//            // Debug button
-//            FloatingActionButton(
-//                onClick = onOpenDebugScreen,
-//                modifier = Modifier
-//                    .align(Alignment.BottomEnd)
-//                    .padding(16.dp),
-//                containerColor = Color(0x99000000),
-//                contentColor = Color.White
-//            ) {
-//                Icon(
-//                    imageVector = Icons.Default.BugReport,
-//                    contentDescription = "Open Debug"
-//                )
-//            }
-
-            // Show swipe analytics overlay if debug info is enabled
-            if (showDebugInfo && lastSwipeEvent != null) {
-                val swipeAnalytics = lastSwipeEvent?.let { analyticsService.analyzeSwipe(it) }
-                SwipeAnalyticsOverlay(
-                    swipeEvent = lastSwipeEvent,
-                    swipeAnalytics = swipeAnalytics,
-                    showDebugInfo = showDebugInfo
+    // Use Box instead of Scaffold to have full control over layout
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            isLoading -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
                 )
             }
 
-            // Show random stop overlay when active
-            if (isRandomStopActive) {
-                RandomStopOverlay()
+            videos.isEmpty() -> {
+                Text(
+                    text = "No videos found. Please add videos to your device.",
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp)
+                )
+            }
+
+            else -> {
+                // ViewPager2 implementation with vertical swiping - fills entire screen
+                AndroidView(
+                    factory = { ctx ->
+                        ViewPager2(ctx).apply {
+                            viewPager = this
+                            adapter = videoAdapter
+                            orientation = ViewPager2.ORIENTATION_VERTICAL
+
+                            registerOnPageChangeCallback(object: ViewPager2.OnPageChangeCallback() {
+                                override fun onPageSelected(pos: Int) {
+                                    super.onPageSelected(pos)
+                                    Log.d("MainScreen", "Page selected: $pos")
+                                    viewModel.onPageSelected(pos)
+                                    swipeDetector.setCurrentVideoId(videos[pos].id)
+                                    videoAdapter.updateCurrentPosition(pos)
+                                }
+                            })
+
+                            // ensure the internal RecyclerView exists, then hook the detector
+                            post {
+                                // The first (and only) child of ViewPager2 is its RecyclerView
+                                (getChildAt(0) as? RecyclerView)?.let { rv ->
+                                    Log.d("MainScreen","📌 attaching swipeDetector to RecyclerView in factory → $rv")
+                                    rv.setOnTouchListener { v, ev ->
+                                        swipeDetector.onTouch(v, ev)
+                                        // return false so RecyclerView/ViewPager2 still handles scrolling
+                                        false
+                                    }
+                                }
+                            }
+
+                            setCurrentItem(currentVideoIndex, false)
+                        }
+                    },
+                    update = { pager ->
+                        viewPager = pager
+                        (pager.adapter as? VideoAdapter)?.updateVideos(videos)
+                        if (pager.currentItem != currentVideoIndex) {
+                            pager.setCurrentItem(currentVideoIndex, true)
+                        }
+                    },
+                    modifier = Modifier
+                        .pointerInteropFilter { motionEvent ->
+                            // send every event into your detector
+                            swipeDetector.onTouch(viewPager, motionEvent)
+                            // return false so ViewPager2 still scrolls normally
+                            false
+                        }
+                        .fillMaxSize()
+                )
             }
         }
+
+        // Top bar - positioned below the system status bar
+        TikTokTopBar(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+        )
+
+        // Bottom bar - positioned above the system navigation bar
+        TikTokBottomBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        )
+
+        // Show swipe analytics overlay if debug info is enabled
+        if (showDebugInfo && lastSwipeEvent != null) {
+            val swipeAnalytics = lastSwipeEvent?.let { analyticsService.analyzeSwipe(it) }
+            SwipeAnalyticsOverlay(
+                swipeEvent = lastSwipeEvent,
+                swipeAnalytics = swipeAnalytics,
+                showDebugInfo = showDebugInfo
+            )
+        }
+
+        // Show random stop overlay when active
+        if (isRandomStopActive) {
+            RandomStopOverlay()
+        }
+
+        // Snackbar host for messages
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
