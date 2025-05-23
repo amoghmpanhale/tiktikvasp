@@ -39,7 +39,7 @@ fun LandingScreen(
 
     // Fixed values for random stops
     val randomStopFrequency = 30 // Default value, won't be used
-    val randomStopDuration = 1000 // Fixed at 1000ms as requested
+    val randomStopDuration = 15000 // Fixed at 1000ms as requested
 
     Box(
         modifier = Modifier

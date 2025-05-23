@@ -97,7 +97,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _randomStopFrequency = MutableStateFlow(30) // Default 30 seconds
     val randomStopFrequency: StateFlow<Int> = _randomStopFrequency.asStateFlow()
 
-    private val _randomStopDuration = MutableStateFlow(1000) // Default 1000ms
+    private val _randomStopDuration = MutableStateFlow(15000) // Default 1000ms
     val randomStopDuration: StateFlow<Int> = _randomStopDuration.asStateFlow()
 
     private val _isRandomStopActive = MutableStateFlow(false)
@@ -188,7 +188,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         autoGeneratePngs: Boolean,
         randomStopsEnabled: Boolean = false,
         randomStopFrequency: Int = 30, // Not used, just keeping parameter for compatibility
-        randomStopDuration: Int = 1000 // Not used, fixed at 1000ms
+        randomStopDuration: Int = 15000 // Not used, fixed at 1000ms
     ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
@@ -517,7 +517,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun configureRandomStops(enabled: Boolean) {
         _randomStopsEnabled.value = enabled
-        _randomStopDuration.value = 1000 // Fixed at 1000ms as requested
+        _randomStopDuration.value = 15000 // Fixed at 1000ms as requested
 
         if (enabled && _isSessionActive.value) {
             startRandomStopTimer()
@@ -582,7 +582,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isRandomStopActive.value = true
 
             // Wait for the fixed duration (1000ms)
-            delay(1000)
+            delay(15000)
 
             // Hide the overlay
             _isRandomStopActive.value = false
