@@ -123,6 +123,73 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _commentCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val commentCounts: StateFlow<Map<String, Int>> = _commentCounts.asStateFlow()
 
+    // Track bookmarked videos
+    private val _bookmarkedVideos = MutableStateFlow<Set<String>>(emptySet())
+    val bookmarkedVideos: StateFlow<Set<String>> = _bookmarkedVideos.asStateFlow()
+
+    /**
+     * Bookmark a video
+     */
+    fun bookmarkVideo(videoId: String) {
+        // Track the bookmark in the behavior tracker (you may need to add this method)
+        // behaviorTracker.trackVideoBookmark(videoId)
+
+        // Update the UI state
+        val currentBookmarks = _bookmarkedVideos.value.toMutableSet()
+        currentBookmarks.add(videoId)
+        _bookmarkedVideos.value = currentBookmarks
+
+        Log.d("MainViewModel", "Bookmarked video: $videoId")
+    }
+
+    /**
+     * Remove bookmark from a video
+     */
+    fun unbookmarkVideo(videoId: String) {
+        // Update the UI state by removing from the set
+        val currentBookmarks = _bookmarkedVideos.value.toMutableSet()
+        currentBookmarks.remove(videoId)
+        _bookmarkedVideos.value = currentBookmarks
+
+        Log.d("MainViewModel", "Unbookmarked video: $videoId")
+    }
+
+    /**
+     * Check if a video is bookmarked
+     */
+    fun isVideoBookmarked(videoId: String): Boolean {
+        return _bookmarkedVideos.value.contains(videoId)
+    }
+
+    /**
+     * Remove comment from a video (toggle off)
+     */
+    fun uncommentVideo(videoId: String) {
+        // Remove this video from commented videos
+        val currentComments = _commentedVideos.value.toMutableSet()
+        currentComments.remove(videoId)
+        _commentedVideos.value = currentComments
+
+        // Reset comment count for this video
+        val currentCounts = _commentCounts.value.toMutableMap()
+        currentCounts.remove(videoId)
+        _commentCounts.value = currentCounts
+
+        Log.d("MainViewModel", "Removed comment from video: $videoId")
+    }
+
+    /**
+     * Remove share from a video (toggle off)
+     */
+    fun unshareVideo(videoId: String) {
+        // Update the UI state by removing from the set
+        val currentShares = _sharedVideos.value.toMutableSet()
+        currentShares.remove(videoId)
+        _sharedVideos.value = currentShares
+
+        Log.d("MainViewModel", "Unshared video: $videoId")
+    }
+
     /**
      * Record a comment on a video
      */

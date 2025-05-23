@@ -3,6 +3,10 @@ package com.example.tiktokvasp.adapters
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -32,6 +36,25 @@ class VideoAdapter(
 
     // Track all created ExoPlayers to ensure proper cleanup
     private val allPlayers = mutableListOf<ExoPlayer>()
+
+    // #region Haptic Feedback
+    private fun performHapticFeedback() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+            vibratorManager.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(50)
+        }
+    }
+    // #endregion
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoViewHolder {
         val view = LayoutInflater.from(context).inflate(R.layout.video_container, parent, false)
@@ -138,6 +161,9 @@ class VideoAdapter(
 
         private fun setupClickListeners() {
             likeIcon.setOnClickListener {
+                // Add haptic feedback
+                performHapticFeedback()
+
                 // Toggle like status
                 val currentLiked = viewModel.isVideoLiked(videoId)
                 if (currentLiked) {
@@ -150,16 +176,51 @@ class VideoAdapter(
             }
 
             commentIcon.setOnClickListener {
-                viewModel.openComments(videoId)
-                updateCommentStatus(true)
+                // Add haptic feedback
+                performHapticFeedback()
+
+                // Toggle comment status
+                val currentCommented = viewModel.hasCommentedOnVideo(videoId)
+                if (currentCommented) {
+                    viewModel.uncommentVideo(videoId)
+                } else {
+                    viewModel.commentOnVideo(videoId)
+                }
+                updateCommentStatus(!currentCommented)
+            }
+
+            bookmarkIcon.setOnClickListener {
+                // Add haptic feedback
+                performHapticFeedback()
+
+                // Toggle bookmark status
+                val currentBookmarked = viewModel.isVideoBookmarked(videoId)
+                if (currentBookmarked) {
+                    viewModel.unbookmarkVideo(videoId)
+                } else {
+                    viewModel.bookmarkVideo(videoId)
+                }
+                updateBookmarkStatus(!currentBookmarked)
             }
 
             shareIcon.setOnClickListener {
-                viewModel.shareVideo(videoId)
-                updateShareStatus(true)
+                // Add haptic feedback
+                performHapticFeedback()
+
+                // Toggle share status
+                val currentShared = viewModel.isVideoShared(videoId)
+                if (currentShared) {
+                    viewModel.unshareVideo(videoId)
+                } else {
+                    viewModel.shareVideo(videoId)
+                }
+                updateShareStatus(!currentShared)
             }
 
             avatar.setOnClickListener {
+                // Add haptic feedback
+                performHapticFeedback()
+
                 viewModel.openUserProfile(videoId)
             }
 
@@ -167,7 +228,9 @@ class VideoAdapter(
             playerView.setOnClickListener {
                 val now = System.currentTimeMillis()
                 if (now - lastTapTime < doubleTapDelay) {
-                    // Double tap detected - toggle like status
+                    // Double tap detected - add haptic feedback and toggle like status
+                    performHapticFeedback()
+
                     val currentLiked = viewModel.isVideoLiked(videoId)
                     if (currentLiked) {
                         viewModel.unlikeVideo(videoId)
@@ -195,10 +258,11 @@ class VideoAdapter(
             val username = extractUsername(title)
             titleTextView.text = "@$username"
 
-            // Update UI based on like/share/comment status
+            // Update UI based on like/share/comment/bookmark status
             updateLikeStatus(viewModel.isVideoLiked(videoId))
             updateShareStatus(viewModel.isVideoShared(videoId))
             updateCommentStatus(viewModel.hasCommentedOnVideo(videoId))
+            updateBookmarkStatus(viewModel.isVideoBookmarked(videoId))
 
             // Release old player if it exists to avoid memory leaks
             release()
@@ -250,6 +314,14 @@ class VideoAdapter(
                 shareIcon.setColorFilter(Color.CYAN)
             } else {
                 shareIcon.setColorFilter(Color.WHITE)
+            }
+        }
+
+        private fun updateBookmarkStatus(isBookmarked: Boolean) {
+            if (isBookmarked) {
+                bookmarkIcon.setColorFilter(Color.BLUE)
+            } else {
+                bookmarkIcon.setColorFilter(Color.WHITE)
             }
         }
 
