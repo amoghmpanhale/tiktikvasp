@@ -573,7 +573,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             currentVideo?.let {
                 val watchPercentage = if (it.duration > 0) {
-                    (watchDuration / it.duration.toFloat()).coerceIn(0f, 1f)
+                    watchDuration / it.duration.toFloat()  // Allow unlimited ratio
                 } else {
                     0f
                 }
