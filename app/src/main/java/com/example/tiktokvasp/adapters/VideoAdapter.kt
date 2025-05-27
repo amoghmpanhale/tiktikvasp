@@ -285,12 +285,15 @@ class VideoAdapter(
             val pattern = """_\d""".toRegex()
             val match = pattern.find(title)
 
-            return if (match != null) {
+            val extractedUsername = if (match != null) {
                 title.substring(0, match.range.first).trim()
             } else {
                 // Fallback: if no underscore+number pattern found, remove file extension
                 title.substringBeforeLast('.').trim()
             }
+
+            // Remove anything enclosed in parentheses from the username string
+            return extractedUsername.replace(Regex("""\([^)]*\)"""), "").trim()
         }
 
         private fun updateLikeStatus(isLiked: Boolean) {
