@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
             Lifecycle.Event.ON_DESTROY -> {
                 Log.d("MainActivity", "Lifecycle: ON_DESTROY - final cleanup")
                 // Final cleanup
+                activeVideoAdapter?.releaseAllPlayers()
                 activeVideoAdapter = null
             }
             else -> {

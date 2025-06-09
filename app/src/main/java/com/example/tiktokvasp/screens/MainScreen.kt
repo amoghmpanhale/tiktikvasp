@@ -110,6 +110,7 @@ fun MainScreen(
         onDispose {
             // Cleanup all players when the screen is disposed
             videoAdapter.releaseAllPlayers()
+            Log.d("MainScreen", "All video players released on screen disposal")
         }
     }
 
@@ -117,13 +118,25 @@ fun MainScreen(
         videoAdapter.updatePlaybackState(isPlaying)
     }
 
-    // Handle session completion - navigate back to landing screen
+    // Handle session completion - stop all videos and navigate to end screen
     LaunchedEffect(isSessionActive) {
         if (!isSessionActive && sessionTimeRemaining == 0L) {
-            // Session has ended, call the callback to navigate back
+            // Session has ended - stop all video playback before navigating
+            Log.d("MainScreen", "Session ended - stopping all video playback")
+            videoAdapter.releaseAllPlayers()
+
+            // Call the callback to navigate to end screen
             onSessionComplete()
         }
     }
+
+//    // Handle session completion - navigate back to landing screen
+//    LaunchedEffect(isSessionActive) {
+//        if (!isSessionActive && sessionTimeRemaining == 0L) {
+//            // Session has ended, call the callback to navigate back
+//            onSessionComplete()
+//        }
+//    }
 
     // Create enhanced swipe detector
     val swipeDetector = remember {

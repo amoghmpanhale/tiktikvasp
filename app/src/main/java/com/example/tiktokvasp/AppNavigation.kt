@@ -13,6 +13,7 @@ import com.example.tiktokvasp.adapters.VideoAdapter
 import com.example.tiktokvasp.screens.LandingScreen
 import com.example.tiktokvasp.screens.MainScreen
 import com.example.tiktokvasp.screens.SwipeAnalyticsDebugScreen
+import com.example.tiktokvasp.screens.EndOfExperimentScreen
 import com.example.tiktokvasp.viewmodel.DebugViewModel
 import com.example.tiktokvasp.viewmodel.LandingViewModel
 import com.example.tiktokvasp.viewmodel.MainViewModel
@@ -71,8 +72,8 @@ fun AppNavigation(
                 },
                 onVideoAdapterCreated = onVideoAdapterCreated,
                 onSessionComplete = {
-                    // Navigate back to landing screen when session completes
-                    navController.navigate(AppRoutes.LANDING) {
+                    // Navigate to end of experiment screen when session completes
+                    navController.navigate(AppRoutes.END_EXPERIMENT) {
                         popUpTo(AppRoutes.MAIN) { inclusive = true }
                     }
                 }
@@ -87,6 +88,10 @@ fun AppNavigation(
                 }
             )
         }
+
+        composable(AppRoutes.END_EXPERIMENT) {
+            EndOfExperimentScreen()
+        }
     }
 }
 
@@ -97,4 +102,5 @@ object AppRoutes {
     const val LANDING = "landing"
     const val MAIN = "main"
     const val DEBUG = "debug"
+    const val END_EXPERIMENT = "end_experiment"
 }
