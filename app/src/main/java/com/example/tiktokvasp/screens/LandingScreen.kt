@@ -36,13 +36,13 @@ fun LandingScreen(
     var sessionDuration by remember { mutableStateOf(10) } // Default 10 minutes
     var autoGeneratePngs by remember { mutableStateOf(true) } // Default true
 
-    // Random stops configuration
+    // Random stops configuration - simplified, no user input needed
     val randomStopsEnabled by viewModel.randomStopsEnabled.collectAsState()
-    var minPauseDurationText by remember { mutableStateOf("10") } // Default 10 seconds
 
-    // Fixed values for random stops
-    val randomStopFrequency = 30 // Default value, won't be used
-    val randomStopDuration = 15000 // Fixed at 15000ms as requested
+    // Fixed values for random stops - these are no longer configurable by user
+    val randomStopFrequency = 45 // Average 45 seconds (30-60 range)
+    val randomStopDuration = 22500 // Average 22.5 seconds (15-30 range)
+    val minPauseDuration = 10 // Not used anymore, but keeping for compatibility
 
     Box(
         modifier = Modifier
@@ -166,38 +166,10 @@ fun LandingScreen(
                     )
                 }
 
-                // Minimum pause duration input (only show when random stops are enabled)
+                // Information about random stops (no user configuration needed)
                 if (randomStopsEnabled) {
-                    OutlinedTextField(
-                        value = minPauseDurationText,
-                        onValueChange = { newValue ->
-                            // Only allow numbers
-                            if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
-                                minPauseDurationText = newValue
-                            }
-                        },
-                        label = { Text("Minimum seconds between pauses") },
-                        placeholder = { Text("10") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedBorderColor = Color(0xFFFF0050),
-                            unfocusedBorderColor = Color(0xFF3A3A3A),
-                            focusedLabelColor = Color(0xFFFF0050),
-                            unfocusedLabelColor = Color.Gray,
-                            cursorColor = Color(0xFFFF0050)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    )
-
                     Text(
-                        text = "Random pauses will occur between 10-30 seconds, but not less than ${minPauseDurationText.ifEmpty { "10" }} seconds after the previous pause.",
+                        text = "Random pauses will occur every 30-60 seconds and last 15-30 seconds each.",
                         color = Color.Gray,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
@@ -282,7 +254,6 @@ fun LandingScreen(
                 Button(
                     onClick = {
                         if (participantId.isNotEmpty() && selectedFolder != null) {
-                            val minPauseDuration = minPauseDurationText.toIntOrNull() ?: 10
                             onStartSession(
                                 participantId,
                                 selectedFolder!!,

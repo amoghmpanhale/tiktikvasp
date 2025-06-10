@@ -21,7 +21,7 @@ import kotlin.math.abs
 class DataExporter(private val context: Context) {
 
     /**
-     * Export detailed session data as CSV with all metrics
+     * Export detailed session data as CSV with all metrics including interruption tracking
      */
     suspend fun exportSessionData(
         participantId: String,
@@ -30,7 +30,8 @@ class DataExporter(private val context: Context) {
         viewEvents: List<ViewEvent>,
         swipeEvents: List<SwipeEvent>,
         swipeAnalytics: Map<String, SwipeAnalytics>,
-        swipePatternPaths: Map<String, String>
+        swipePatternPaths: Map<String, String>,
+        interruptionEvents: List<InterruptionEvent> // Add interruption events parameter
     ): String = withContext(Dispatchers.IO) {
         try {
             val timestamp = getTimestamp()
@@ -39,11 +40,12 @@ class DataExporter(private val context: Context) {
             val file = File(directory, fileName)
 
             FileWriter(file).use { writer ->
-                // Write CSV header
+                // Write CSV header with interruption columns
                 writer.append("Participant ID,Category,Video Number,Video Name,Video Duration(ms),")
                 writer.append("Watch Duration(ms),Watch Percentage,Liked?,Shared?,Commented?,")
                 writer.append("Swipe Pattern Image,Swipe Direction,Swipe Velocity(px/s),")
-                writer.append("Swipe Acceleration(px/s²),Swipe Regularity(%)\n")
+                writer.append("Swipe Acceleration(px/s²),Swipe Regularity(%),")
+                writer.append("Interruption Occurred,Interruption Duration(ms)\n") // Add interruption columns
 
                 // Group view events by video
                 val viewsByVideo = viewEvents.groupBy { it.videoId }
@@ -53,6 +55,9 @@ class DataExporter(private val context: Context) {
                 videos.forEachIndexed { index, video ->
                     videoNumberMap[video.id] = index + 1
                 }
+
+                // Create a map for quick interruption lookup by video ID
+                val interruptionsByVideo = interruptionEvents.associateBy { it.videoIdWhenOccurred }
 
                 // Process each video
                 videos.forEach { video ->
@@ -66,10 +71,16 @@ class DataExporter(private val context: Context) {
                     // Find all swipe events after viewing this video
                     val relevantSwipes = swipeEvents.filter { it.videoId == video.id }
 
+                    // Get interruption data for this video (if any)
+                    val interruption = interruptionsByVideo[video.id]
+                    val interruptionOccurred = if (interruption != null) "1" else "0"
+                    val interruptionDuration = interruption?.durationMs?.toString() ?: "0"
+
                     // If there are no views or swipes, still record the video with empty data
                     if (views.isEmpty() && relevantSwipes.isEmpty()) {
                         writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
-                        writer.append("0,0,No,No,No,,,0,0,0\n")
+                        writer.append("0,0,No,No,No,,,0,0,0,")
+                        writer.append("$interruptionOccurred,$interruptionDuration\n") // Add interruption data
                     } else {
                         // Process each view event
                         views.forEach { view ->
@@ -89,7 +100,7 @@ class DataExporter(private val context: Context) {
                             val isShared = if (view.isShared) "Yes" else "No"
                             val hasCommented = if (view.hasCommented) "Yes" else "No"
 
-                            // Write the row
+                            // Write the row with interruption data
                             writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
                             writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,$hasCommented,")
 
@@ -97,16 +108,19 @@ class DataExporter(private val context: Context) {
                                 writer.append("\"$patternPath\",${exitSwipe.direction},")
                                 writer.append("${abs(exitSwipe.velocityY).toInt()},")
                                 writer.append("${analytics.acceleration.toInt()},")
-                                writer.append("${(analytics.speedConsistency * 100).toInt()}\n")
+                                writer.append("${(analytics.speedConsistency * 100).toInt()},")
                             } else {
-                                writer.append(",,0,0,0\n")
+                                writer.append(",,0,0,0,")
                             }
+
+                            // Add interruption data at the end
+                            writer.append("$interruptionOccurred,$interruptionDuration\n")
                         }
                     }
                 }
             }
 
-            Log.d("DataExporter", "Exported session data to ${file.absolutePath}")
+            Log.d("DataExporter", "Exported session data with interruption tracking to ${file.absolutePath}")
             return@withContext file.absolutePath
 
         } catch (e: Exception) {

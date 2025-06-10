@@ -17,6 +17,44 @@ class UserBehaviorTracker {
     private val videoShares = mutableMapOf<String, Boolean>()
     private val videoComments = mutableMapOf<String, Boolean>()
 
+    // Track interruption events
+    private var interruptionEvents = mutableListOf<InterruptionEvent>()
+
+    /**
+    * Track a random interruption event
+    */
+    fun trackInterruption(durationMs: Long, videoId: String?) {
+        val event = InterruptionEvent(
+            id = UUID.randomUUID().toString(),
+            sessionId = sessionId,
+            timestamp = System.currentTimeMillis(),
+            durationMs = durationMs,
+            videoIdWhenOccurred = videoId
+        )
+
+        interruptionEvents.add(event)
+        logEvent("Interruption: Duration: ${durationMs}ms, Video: $videoId")
+    }
+
+    /**
+     * Get all interruption events
+     */
+    fun getInterruptionEvents(): List<InterruptionEvent> = interruptionEvents.toList()
+
+    /**
+     * Get interruption for a specific video (if any occurred during that video)
+     */
+    fun getInterruptionForVideo(videoId: String): InterruptionEvent? {
+        return interruptionEvents.find { it.videoIdWhenOccurred == videoId }
+    }
+
+    /**
+     * Clear interruption events
+     */
+    fun clearInterruptionEvents() {
+        interruptionEvents.clear()
+    }
+
     /**
      * Track detailed swipe information from the EnhancedSwipeTracker
      */
@@ -208,4 +246,12 @@ data class ViewEvent(
     val isLiked: Boolean = false,
     val isShared: Boolean = false,
     val hasCommented: Boolean = false  // Added comment status
+)
+
+data class InterruptionEvent(
+    val id: String,
+    val sessionId: String,
+    val timestamp: Long,
+    val durationMs: Long,
+    val videoIdWhenOccurred: String? // The video that was playing when interruption started
 )

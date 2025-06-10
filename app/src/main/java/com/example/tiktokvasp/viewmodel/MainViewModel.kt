@@ -263,19 +263,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         durationMinutes: Int,
         autoGeneratePngs: Boolean,
         randomStopsEnabled: Boolean = false,
-        randomStopFrequency: Int = 30, // Not used, just keeping parameter for compatibility
-        randomStopDuration: Int = 15000, // Not used, fixed at 15000ms
-        minPauseDuration: Int = 10 // New parameter for minimum pause duration
+        randomStopFrequency: Int = 45, // Not used anymore, just keeping for compatibility
+        randomStopDuration: Int = 22500, // Not used anymore, just keeping for compatibility
+        minPauseDuration: Int = 10 // Not used anymore, just keeping for compatibility
     ) {
         if (_participantId.value.isBlank() || categoryFolder.isBlank()) {
             _exportStatus.value = "Please set participant ID and select a video folder first"
             return
         }
 
-        // Store the minimum pause duration
-        _minPauseDuration.value = minPauseDuration
-
-        // Configure random stops
+        // Configure random stops with new randomized system
         configureRandomStops(randomStopsEnabled)
 
         // Create session manager
@@ -358,7 +355,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Export session data to CSV with all metrics
+     * Export session data to CSV with all metrics including interruption tracking
      */
     fun exportSessionData() {
         viewModelScope.launch {
@@ -367,8 +364,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val swipeEvents = behaviorTracker.getSwipeEvents()
             val viewEvents = behaviorTracker.getViewEvents()
+            val interruptionEvents = behaviorTracker.getInterruptionEvents() // Get interruption data
 
-            // Export using the enhanced format
+            // Export using the enhanced format with interruption tracking
             val exportedFilePath = dataExporter.exportSessionData(
                 participantId = _participantId.value,
                 category = categoryFolder,
@@ -376,7 +374,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 viewEvents = viewEvents,
                 swipeEvents = swipeEvents,
                 swipeAnalytics = swipeAnalyticsMap,
-                swipePatternPaths = swipePatternPaths
+                swipePatternPaths = swipePatternPaths,
+                interruptionEvents = interruptionEvents // Pass interruption data
             )
 
             if (exportedFilePath.isNotEmpty()) {
@@ -392,7 +391,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             Log.d(
                 "MainViewModel",
-                "Exported ${swipeEvents.size} swipe events and ${viewEvents.size} view events"
+                "Exported ${swipeEvents.size} swipe events, ${viewEvents.size} view events, and ${interruptionEvents.size} interruption events"
             )
         }
     }
@@ -591,11 +590,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Configure random stops, just enabled/disabled now with fixed duration
+     * Configure random stops with new randomized system
      */
     fun configureRandomStops(enabled: Boolean) {
         _randomStopsEnabled.value = enabled
-        _randomStopDuration.value = 15000 // Fixed at 15000ms
 
         if (enabled && _isSessionActive.value) {
             startRandomStopTimer()
@@ -605,12 +603,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(
             "MainViewModel",
-            "Random stops configured: enabled=$enabled, duration=15000ms, minPauseDuration=${_minPauseDuration.value}s"
+            "Random stops configured: enabled=$enabled, interval=30-60s, duration=15-30s"
         )
     }
 
     /**
-     * Start the random stop timer with random intervals but respecting minimum pause duration
+     * Start the random stop timer with random intervals (30-60 seconds) and random durations (15-30 seconds)
      */
     private fun startRandomStopTimer() {
         // Cancel any existing job
@@ -618,27 +616,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Start a new coroutine for random stops
         randomStopJob = viewModelScope.launch {
-            Log.d("MainViewModel", "Starting random stop timer with minimum pause duration: ${_minPauseDuration.value}s")
+            Log.d("MainViewModel", "Starting random stop timer with randomized intervals and durations")
 
             while (isActive && _randomStopsEnabled.value && _isSessionActive.value) {
-                // Random delay between 10-30 seconds
-                val baseDelayMs = (10000 + random.nextInt(20000)).toLong()
+                // Random delay between 30-60 seconds (30000-60000 ms)
+                val delayMs = (30000 + random.nextInt(30001)).toLong() // 30000 + 0-30000 = 30000-60000
 
-                // Check if we need to wait longer due to minimum pause duration
-                val currentTime = System.currentTimeMillis()
-                val timeSinceLastPause = currentTime - lastPauseTimestamp
-                val minPauseDurationMs = _minPauseDuration.value * 1000L
-
-                val finalDelayMs = if (lastPauseTimestamp > 0 && timeSinceLastPause < minPauseDurationMs) {
-                    // We need to wait longer to respect minimum pause duration
-                    val additionalWait = minPauseDurationMs - timeSinceLastPause
-                    maxOf(baseDelayMs, additionalWait)
-                } else {
-                    baseDelayMs
-                }
-
-                Log.d("MainViewModel", "Waiting ${finalDelayMs}ms until next random stop (base: ${baseDelayMs}ms, min pause: ${_minPauseDuration.value}s)")
-                delay(finalDelayMs)
+                Log.d("MainViewModel", "Waiting ${delayMs}ms until next random stop")
+                delay(delayMs)
 
                 // Trigger a random stop if still enabled and session active
                 if (_randomStopsEnabled.value && _isSessionActive.value) {
@@ -656,15 +641,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Trigger a random stop
+     * Trigger a random stop with randomized duration (15-30 seconds)
      */
     private fun triggerRandomStop() {
         viewModelScope.launch {
-            // Record the timestamp of this pause
-            lastPauseTimestamp = System.currentTimeMillis()
+            // Random duration between 15-30 seconds (15000-30000 ms)
+            val stopDuration = (15000 + random.nextInt(15001)).toLong() // 15000 + 0-15000 = 15000-30000
+
+            // Get the current video ID to associate the interruption with
+            val currentVideo = currentVideoId
 
             // Log the stop event
-            Log.d("MainViewModel", "Triggering random stop for 15000ms (last pause: ${lastPauseTimestamp})")
+            Log.d("MainViewModel", "Triggering random stop for ${stopDuration}ms on video: $currentVideo")
+
+            // Track the interruption in the behavior tracker
+            behaviorTracker.trackInterruption(stopDuration, currentVideo)
 
             // Save current playback state
             val wasPlaying = _isPlaying.value
@@ -675,8 +666,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Show the overlay
             _isRandomStopActive.value = true
 
-            // Wait for the fixed duration (15000ms)
-            delay(15000)
+            // Wait for the random duration
+            delay(stopDuration)
 
             // Hide the overlay
             _isRandomStopActive.value = false
@@ -684,11 +675,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Resume playback - videos should always be playing
             _isPlaying.value = true
 
-            Log.d("MainViewModel", "Random stop completed")
+            Log.d("MainViewModel", "Random stop completed after ${stopDuration}ms")
         }
     }
-
-    // Remove toggleVideoPlayback function - videos should not be pausable by user
 
     fun likeCurrentVideo() {
         currentVideoId?.let { videoId ->
