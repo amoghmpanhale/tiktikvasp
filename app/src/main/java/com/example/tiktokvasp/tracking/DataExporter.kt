@@ -130,6 +130,53 @@ class DataExporter(private val context: Context) {
     }
 
     /**
+     * Export play-by-play session data showing each video instance played
+     * This creates a detailed log where each row represents one video viewing session
+     */
+    suspend fun exportPlayByPlayData(
+        participantId: String,
+        category: String,
+        playByPlayEvents: List<PlayByPlayEvent>
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = getTimestamp()
+            val directory = getSessionDirectory(participantId, category)
+            val fileName = "play_by_play_${timestamp}.csv"
+            val file = File(directory, fileName)
+
+            FileWriter(file).use { writer ->
+                // Write CSV header
+                writer.append("Participant ID,Video Number,Video Name,Video Duration(ms),")
+                writer.append("Watch Duration(ms),Liked?,Shared?,Commented?,")
+                writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms)\n")
+
+                // Write each play-by-play event as a row
+                playByPlayEvents.forEach { event ->
+                    writer.append("$participantId,")
+                    writer.append("${event.videoNumber},")
+                    writer.append("\"${event.videoName}\",")
+                    writer.append("${event.videoDurationMs},")
+                    writer.append("${event.watchDurationMs},")
+                    writer.append("${if (event.wasLiked) "Yes" else "No"},")
+                    writer.append("${if (event.wasShared) "Yes" else "No"},")
+                    writer.append("${if (event.wasCommented) "Yes" else "No"},")
+                    writer.append("${if (event.interruptionOccurred) "Yes" else "No"},")
+                    writer.append("${event.interruptionDurationMs},")
+                    writer.append("${event.interruptionPointMs}\n")
+                }
+            }
+
+            Log.d("DataExporter", "Exported play-by-play data to ${file.absolutePath}")
+            return@withContext file.absolutePath
+
+        } catch (e: Exception) {
+            Log.e("DataExporter", "Failed to export play-by-play data", e)
+            return@withContext ""
+        }
+    }
+
+
+    /**
      * Export swipe events as before (keeping for backward compatibility)
      */
     suspend fun exportSwipeEvents(events: List<SwipeEvent>): Boolean = withContext(Dispatchers.IO) {
