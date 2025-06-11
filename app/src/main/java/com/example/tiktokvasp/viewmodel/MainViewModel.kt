@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import android.util.Log
 import com.example.tiktokvasp.tracking.PlayByPlayEvent
+import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 import java.util.concurrent.TimeUnit
 
@@ -131,8 +132,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Play-by-play tracking
     private val playByPlayEvents = mutableListOf<PlayByPlayEvent>()
     private var currentVideoStartTime = 0L
-    private var videoInstanceCounter = 0
+    private var viewingInstanceCounter = 0
     private var currentInterruption: InterruptionData? = null
+
+    // Add a map to track video IDs to their numbers in the original list
+    private val videoIdToNumberMap = mutableMapOf<String, Int>()
+
+    // Track interruption timing
+    private var lastInterruptionEndTime: Long = 0L
+
 
     // Data class to track interruption details for current video
     private data class InterruptionData(
@@ -245,6 +253,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadVideos()
     }
 
+    /**
+     * Modified loadVideos to initialize numbering
+     */
     private fun loadVideos() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -253,6 +264,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Store original videos
             _originalVideos.clear()
             _originalVideos.addAll(localVideos)
+
+            // Initialize consistent video numbering
+            initializeVideoNumbering(localVideos)
 
             // Randomize and set the videos
             val randomizedVideos = localVideos.shuffled()
@@ -271,7 +285,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Clear play-by-play data when starting a new session
+     * Reset interruption timing when starting a new session
      */
     fun startSession(
         durationMinutes: Int,
@@ -288,13 +302,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Clear previous session data
         playByPlayEvents.clear()
-        videoInstanceCounter = 0
+        viewingInstanceCounter = 0
         currentInterruption = null
+        lastInterruptionEndTime = 0L // Reset interruption timing
 
-        // Configure random stops with new randomized system
+        // Rest of the method remains the same...
         configureRandomStops(randomStopsEnabled)
 
-        // Create session manager
         sessionManager = SessionManager(
             getApplication(),
             _participantId.value,
@@ -305,25 +319,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             setOnSessionCompleteListener {
-                // End the session
                 _isSessionActive.value = false
-
-                // Stop random stops if enabled
                 stopRandomStopTimer()
-
                 _exportStatus.value = "Session completed. Exporting data..."
-
-                // Export data when session ends
                 exportSessionData()
             }
 
-            // Start the session
             startSession(durationMinutes, autoGeneratePngs)
         }
 
         _isSessionActive.value = true
 
-        // Start random stops timer if enabled
         if (randomStopsEnabled) {
             startRandomStopTimer()
         }
@@ -596,12 +602,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         videoViewStartTime = System.currentTimeMillis()
         currentVideoStartTime = System.currentTimeMillis()
         currentVideoId = videoId
-        videoInstanceCounter++
+        viewingInstanceCounter++  // This tracks viewing instances
         currentInterruption = null
         _isPlaying.value = true
 
-        Log.d("MainViewModel", "Started tracking video instance #$videoInstanceCounter: $videoId")
+        Log.d("MainViewModel", "Started tracking viewing instance #$viewingInstanceCounter: $videoId")
     }
+
 
     /**
      * End the current video tracking and create a play-by-play event
@@ -612,9 +619,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             currentVideo?.let { video ->
                 val watchDuration = System.currentTimeMillis() - currentVideoStartTime
 
+                // Get the video number from the original video list (consistent across both CSVs)
+                val videoNumber = getVideoNumber(videoId)
+
+                // Calculate time since last interruption ended
+                val timeSinceLastInterruption = calculateTimeSinceLastInterruption()
+
                 // Create play-by-play event
                 val playByPlayEvent = PlayByPlayEvent(
-                    videoNumber = videoInstanceCounter,
+                    videoNumber = videoNumber,
                     videoName = video.title,
                     videoDurationMs = video.duration,
                     watchDurationMs = watchDuration,
@@ -623,13 +636,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     wasCommented = hasCommentedOnVideo(videoId),
                     interruptionOccurred = currentInterruption != null,
                     interruptionDurationMs = currentInterruption?.durationMs ?: 0L,
-                    interruptionPointMs = currentInterruption?.videoTimeStamp ?: 0L
+                    interruptionPointMs = currentInterruption?.videoTimeStamp ?: 0L,
+                    timeSinceLastInterruptionMs = timeSinceLastInterruption // New field
                 )
 
                 playByPlayEvents.add(playByPlayEvent)
 
-                Log.d("MainViewModel", "Ended video tracking #$videoInstanceCounter: watched ${watchDuration}ms, " +
-                        "interruption: ${currentInterruption != null}")
+                Log.d("MainViewModel", "Ended viewing instance #$viewingInstanceCounter: " +
+                        "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
+                        "interruption: ${currentInterruption != null}, " +
+                        "time since last interruption: ${timeSinceLastInterruption}ms")
 
                 // Also create the regular view event for backward compatibility
                 val watchPercentage = if (video.duration > 0) {
@@ -642,7 +658,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
+    /**
+     * Get the consistent video number for a video ID
+     * This ensures both CSVs use the same numbering system
+     */
+    private fun getVideoNumber(videoId: String): Int {
+        return videoIdToNumberMap[videoId] ?: run {
+            // If not found, try to find it in current videos and assign a number
+            val currentVideo = _videos.value.find { it.id == videoId }
+            if (currentVideo != null) {
+                val index = _videos.value.indexOf(currentVideo)
+                val number = index + 1
+                videoIdToNumberMap[videoId] = number
+                number
+            } else {
+                // Fallback: check original videos
+                val originalVideo = _originalVideos.find { it.id == videoId }
+                if (originalVideo != null) {
+                    val index = _originalVideos.indexOf(originalVideo)
+                    val number = index + 1
+                    videoIdToNumberMap[videoId] = number
+                    number
+                } else {
+                    0 // Should not happen
+                }
+            }
+        }
+    }
 
     private fun endVideoViewTracking() {
         currentVideoId?.let { videoId ->
@@ -660,6 +702,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    /**
+     * Initialize video numbering when videos are loaded
+     */
+    private fun initializeVideoNumbering(videos: List<Video>) {
+        videoIdToNumberMap.clear()
+        videos.forEachIndexed { index, video ->
+            videoIdToNumberMap[video.id] = index + 1
+        }
+        Log.d("MainViewModel", "Initialized video numbering: ${videoIdToNumberMap.size} videos")
+    }
+
 
     private fun trackSwipeEvent(direction: SwipeDirection) {
         currentVideoId?.let { videoId ->
@@ -696,27 +750,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             var iterationCount = 0
             val timerStartTime = System.currentTimeMillis()
+            var lastInterruptionStartTime = 0L
 
             while (isActive && _randomStopsEnabled.value && _isSessionActive.value) {
                 iterationCount++
 
                 // Random delay between 30-60 seconds (30000-60000 ms)
-                val delayMs = (30000 + random.nextInt(30001)).toLong() // 30000 + 0-30000 = 30000-60000
+                val baseDelayMs = (40000 + random.nextInt(30001)).toLong() // 30000 + 0-30000 = 30000-60000
+
+                // Adjust the delay based on whether this is the first interruption or not
+                val adjustedDelayMs = if (lastInterruptionStartTime == 0L) {
+                    // First interruption - use full delay
+                    baseDelayMs
+                } else {
+                    // Subsequent interruptions - calculate delay from last interruption START
+                    val targetNextInterruptionTime = lastInterruptionStartTime + baseDelayMs
+                    val currentTime = System.currentTimeMillis()
+                    val remainingDelay = targetNextInterruptionTime - currentTime
+
+                    Log.d("MainViewModel", "Iteration $iterationCount: Target interval from last START: ${baseDelayMs}ms")
+                    Log.d("MainViewModel", "Time since last interruption started: ${currentTime - lastInterruptionStartTime}ms")
+                    Log.d("MainViewModel", "Remaining delay needed: ${remainingDelay}ms")
+
+                    // If we're already past the target time, trigger immediately
+                    if (remainingDelay <= 0) {
+                        Log.d("MainViewModel", "Already past target time, triggering immediately")
+                        0L
+                    } else {
+                        remainingDelay
+                    }
+                }
 
                 val beforeDelayTime = System.currentTimeMillis()
-                Log.d("MainViewModel", "Iteration $iterationCount: Calculated delay = ${delayMs}ms (${delayMs/1000}s)")
+                Log.d("MainViewModel", "Iteration $iterationCount: Calculated delay = ${adjustedDelayMs}ms (${adjustedDelayMs/1000}s)")
                 Log.d("MainViewModel", "Time since timer start: ${(beforeDelayTime - timerStartTime)/1000}s")
 
-                delay(delayMs)
+                if (adjustedDelayMs > 0) {
+                    delay(adjustedDelayMs)
+                }
 
                 val afterDelayTime = System.currentTimeMillis()
                 val actualDelayMs = afterDelayTime - beforeDelayTime
                 Log.d("MainViewModel", "Iteration $iterationCount: Actual delay was ${actualDelayMs}ms (${actualDelayMs/1000}s)")
-                Log.d("MainViewModel", "Delay difference: ${actualDelayMs - delayMs}ms")
+
+                // Record when this interruption starts
+                lastInterruptionStartTime = afterDelayTime
 
                 // Trigger a random stop if still enabled and session active
                 if (_randomStopsEnabled.value && _isSessionActive.value) {
                     Log.d("MainViewModel", "Triggering random stop at ${(afterDelayTime - timerStartTime)/1000}s since timer start")
+                    Log.d("MainViewModel", "Time since last interruption START: ${if (iterationCount > 1) (afterDelayTime - (lastInterruptionStartTime - actualDelayMs))/1000 else 0}s")
                     triggerRandomStop()
                 }
             }
@@ -731,7 +814,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Enhanced method to trigger random stop with play-by-play tracking
+     * Enhanced method to trigger random stop with timing tracking
      */
     private fun triggerRandomStop() {
         viewModelScope.launch {
@@ -745,9 +828,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 0L
             }
 
+            val interruptionStartTime = System.currentTimeMillis()
+
             // Store interruption data for current video
             currentInterruption = InterruptionData(
-                startTime = System.currentTimeMillis(),
+                startTime = interruptionStartTime,
                 videoTimeStamp = videoTimeStamp,
                 durationMs = stopDuration
             )
@@ -779,7 +864,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Resume playback - videos should always be playing
             _isPlaying.value = true
 
-            Log.d("MainViewModel", "Random stop completed after ${stopDuration}ms")
+            // Update the last interruption end time
+            lastInterruptionEndTime = System.currentTimeMillis()
+
+            Log.d("MainViewModel", "Random stop completed after ${stopDuration}ms, ended at: $lastInterruptionEndTime")
+        }
+    }
+
+    /**
+     * Calculate time since last interruption ended
+     */
+    private fun calculateTimeSinceLastInterruption(): Long {
+        return if (lastInterruptionEndTime > 0) {
+            System.currentTimeMillis() - lastInterruptionEndTime
+        } else {
+            0L // No previous interruption
         }
     }
 
@@ -827,6 +926,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Implementation for opening user profile
     }
 
+    /**
+     * Modified loadVideosFromFolder to initialize numbering
+     */
     fun loadVideosFromFolder(folderName: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -837,7 +939,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _originalVideos.clear()
             _originalVideos.addAll(folderVideos)
 
-            // Randomize and set the videos
+            // Initialize consistent video numbering based on original order
+            initializeVideoNumbering(folderVideos)
+
+            // Randomize and set the videos for playback
             val randomizedVideos = folderVideos.shuffled()
             _videos.value = randomizedVideos
 
@@ -868,9 +973,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        endVideoViewTracking()
+        endCurrentVideoTracking()
         endSession()
-        exportSessionData() // Export data when ViewModel is cleared
+
+        // Force export if session was active (in case app was closed early)
+        if (_isSessionActive.value || playByPlayEvents.isNotEmpty()) {
+            Log.d("MainViewModel", "App closing - force exporting data")
+            // Run export synchronously since we're in onCleared
+            runBlocking {
+                exportSessionData()
+            }
+        }
+
         super.onCleared()
     }
 

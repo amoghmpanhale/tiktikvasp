@@ -148,7 +148,7 @@ class DataExporter(private val context: Context) {
                 // Write CSV header
                 writer.append("Participant ID,Video Number,Video Name,Video Duration(ms),")
                 writer.append("Watch Duration(ms),Liked?,Shared?,Commented?,")
-                writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms)\n")
+                writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms), Time Since Last Interruption(ms)\n")
 
                 // Write each play-by-play event as a row
                 playByPlayEvents.forEach { event ->
@@ -162,7 +162,9 @@ class DataExporter(private val context: Context) {
                     writer.append("${if (event.wasCommented) "Yes" else "No"},")
                     writer.append("${if (event.interruptionOccurred) "Yes" else "No"},")
                     writer.append("${event.interruptionDurationMs},")
-                    writer.append("${event.interruptionPointMs}\n")
+                    writer.append("${event.interruptionPointMs},")
+                    writer.append("${event.timeSinceLastInterruptionMs}\n")
+
                 }
             }
 

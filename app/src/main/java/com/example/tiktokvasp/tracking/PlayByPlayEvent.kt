@@ -14,6 +14,6 @@ data class PlayByPlayEvent(
     val wasCommented: Boolean,      // Whether user commented on this video during this viewing
     val interruptionOccurred: Boolean,  // Whether an interruption happened during this viewing
     val interruptionDurationMs: Long,   // Duration of interruption (0 if none)
-    val interruptionPointMs: Long       // Timestamp in video when interruption occurred (0 if none)
+    val interruptionPointMs: Long,      // Timestamp in video when interruption occurred (0 if none)
+    val timeSinceLastInterruptionMs: Long // Time elapsed since the last interruption ended (0 if first/none)
 )
-
