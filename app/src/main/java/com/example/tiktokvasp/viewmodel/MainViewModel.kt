@@ -140,13 +140,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Track interruption timing
     private var lastInterruptionEndTime: Long = 0L
-
+    private var sessionStartTime: Long = 0L
 
     // Data class to track interruption details for current video
     private data class InterruptionData(
         val startTime: Long,        // When interruption started (system time)
         val videoTimeStamp: Long,   // Time in video when interruption occurred
-        val durationMs: Long        // Duration of the interruption
+        val durationMs: Long,       // Duration of the interruption
+        val timeSinceLastInterruptionMs: Long // Time from last interruption end to this interruption start
     )
 
     /**
@@ -305,6 +306,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewingInstanceCounter = 0
         currentInterruption = null
         lastInterruptionEndTime = 0L // Reset interruption timing
+        sessionStartTime = System.currentTimeMillis() // Track session start time
 
         // Rest of the method remains the same...
         configureRandomStops(randomStopsEnabled)
@@ -609,7 +611,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Log.d("MainViewModel", "Started tracking viewing instance #$viewingInstanceCounter: $videoId")
     }
 
-
     /**
      * End the current video tracking and create a play-by-play event
      */
@@ -622,8 +623,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Get the video number from the original video list (consistent across both CSVs)
                 val videoNumber = getVideoNumber(videoId)
 
-                // Calculate time since last interruption ended
-                val timeSinceLastInterruption = calculateTimeSinceLastInterruption()
+                // Use the time since last interruption that was calculated when the interruption started
+                val timeSinceLastInterruption = currentInterruption?.timeSinceLastInterruptionMs ?: 0L
 
                 // Create play-by-play event
                 val playByPlayEvent = PlayByPlayEvent(
@@ -637,7 +638,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     interruptionOccurred = currentInterruption != null,
                     interruptionDurationMs = currentInterruption?.durationMs ?: 0L,
                     interruptionPointMs = currentInterruption?.videoTimeStamp ?: 0L,
-                    timeSinceLastInterruptionMs = timeSinceLastInterruption // New field
+                    timeSinceLastInterruptionMs = timeSinceLastInterruption
                 )
 
                 playByPlayEvents.add(playByPlayEvent)
@@ -713,7 +714,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         Log.d("MainViewModel", "Initialized video numbering: ${videoIdToNumberMap.size} videos")
     }
-
 
     private fun trackSwipeEvent(direction: SwipeDirection) {
         currentVideoId?.let { videoId ->
@@ -830,11 +830,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val interruptionStartTime = System.currentTimeMillis()
 
-            // Store interruption data for current video
+            // Calculate time since last interruption END to current interruption START
+            val timeSinceLastInterruption = if (lastInterruptionEndTime > 0) {
+                interruptionStartTime - lastInterruptionEndTime
+            } else {
+                // First interruption - time since session start
+                interruptionStartTime - sessionStartTime
+            }
+
+            // Store interruption data for current video (including the calculated time)
             currentInterruption = InterruptionData(
                 startTime = interruptionStartTime,
                 videoTimeStamp = videoTimeStamp,
-                durationMs = stopDuration
+                durationMs = stopDuration,
+                timeSinceLastInterruptionMs = timeSinceLastInterruption
             )
 
             // Get the current video ID to associate the interruption with
@@ -842,6 +851,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // Log the stop event
             Log.d("MainViewModel", "Triggering random stop for ${stopDuration}ms on video: $currentVideo at timestamp: ${videoTimeStamp}ms")
+            Log.d("MainViewModel", "Time since last interruption ended: ${timeSinceLastInterruption}ms")
 
             // Track the interruption in the behavior tracker (for backward compatibility)
             behaviorTracker.trackInterruption(stopDuration, currentVideo)
@@ -868,17 +878,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             lastInterruptionEndTime = System.currentTimeMillis()
 
             Log.d("MainViewModel", "Random stop completed after ${stopDuration}ms, ended at: $lastInterruptionEndTime")
-        }
-    }
-
-    /**
-     * Calculate time since last interruption ended
-     */
-    private fun calculateTimeSinceLastInterruption(): Long {
-        return if (lastInterruptionEndTime > 0) {
-            System.currentTimeMillis() - lastInterruptionEndTime
-        } else {
-            0L // No previous interruption
         }
     }
 
