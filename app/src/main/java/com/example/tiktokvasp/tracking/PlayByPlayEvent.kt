@@ -9,6 +9,7 @@ data class PlayByPlayEvent(
     val videoName: String,          // Name of the video file
     val videoDurationMs: Long,      // Total duration of the video
     val watchDurationMs: Long,      // How long the user watched this instance
+    val watchCount: Int,            // How many times the video was watched
     val wasLiked: Boolean,          // Whether user liked this video during this viewing
     val wasShared: Boolean,         // Whether user shared this video during this viewing
     val wasCommented: Boolean,      // Whether user commented on this video during this viewing

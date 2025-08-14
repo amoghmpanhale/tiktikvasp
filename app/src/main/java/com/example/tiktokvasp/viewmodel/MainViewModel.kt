@@ -142,6 +142,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var lastInterruptionEndTime: Long = 0L
     private var sessionStartTime: Long = 0L
 
+    // Track watch counts per video
+    private val _watchCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val watchCounts: StateFlow<Map<String, Int>> = _watchCounts.asStateFlow()
+
     // Data class to track interruption details for current video
     private data class InterruptionData(
         val startTime: Long,        // When interruption started (system time)
@@ -401,7 +405,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 swipeEvents = swipeEvents,
                 swipeAnalytics = swipeAnalyticsMap,
                 swipePatternPaths = swipePatternPaths,
-                interruptionEvents = interruptionEvents
+                interruptionEvents = interruptionEvents,
+                viewModel = this@MainViewModel // Add this line
             )
 
             // Export the new play-by-play data
@@ -607,7 +612,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentInterruption = null
         _isPlaying.value = true
 
-        Log.d("MainViewModel", "Started tracking viewing instance #$viewingInstanceCounter: $videoId")
+        // Increment watch count for this video
+        val currentCounts = _watchCounts.value.toMutableMap()
+        val currentCount = currentCounts[videoId] ?: 0
+        currentCounts[videoId] = currentCount + 1
+        _watchCounts.value = currentCounts
+
+        Log.d("MainViewModel", "Started tracking viewing instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
     }
 
     /**
@@ -631,6 +642,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     videoName = video.title,
                     videoDurationMs = video.duration,
                     watchDurationMs = watchDuration,
+                    watchCount = getWatchCount(videoId), // Add this line
                     wasLiked = isVideoLiked(videoId),
                     wasShared = isVideoShared(videoId),
                     wasCommented = hasCommentedOnVideo(videoId),
@@ -996,5 +1008,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // You might want to track this in behavior tracker too
         Log.d("MainViewModel", "Unliked video: $videoId")
+    }
+
+    /**
+     * Get watch count for a video
+     */
+    fun getWatchCount(videoId: String): Int {
+        return _watchCounts.value[videoId] ?: 0
     }
 }
