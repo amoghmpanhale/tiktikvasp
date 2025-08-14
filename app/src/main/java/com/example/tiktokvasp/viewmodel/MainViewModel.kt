@@ -274,11 +274,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = false
 
             if (randomizedVideos.isNotEmpty()) {
-                startVideoViewTracking(randomizedVideos.first().id)  // This will count as first watch
+                startVideoViewTracking(randomizedVideos.first().id)  // Don't increment watch count here
             }
         }
     }
-    
+
 
     fun setParticipantId(id: String) {
         _participantId.value = id
@@ -462,13 +462,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             viewingInstanceCounter++
             currentInterruption = null
 
-            // ALWAYS increment watch count when starting to watch (even rewatches)
-            val currentCounts = _watchCounts.value.toMutableMap()
-            val currentCount = currentCounts[videoId] ?: 0
-            currentCounts[videoId] = currentCount + 1
-            _watchCounts.value = currentCounts
-
-            Log.d("MainViewModel", "Video rewatched without swiping - instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
+            // Don't increment watch count here - we'll calculate it based on watch duration ratio
+            Log.d("MainViewModel", "Video rewatched without swiping - instance #$viewingInstanceCounter: $videoId")
         }
     }
 
@@ -631,13 +626,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentInterruption = null
         _isPlaying.value = true
 
-        // ALWAYS increment watch count when starting to watch a video
-        val currentCounts = _watchCounts.value.toMutableMap()
-        val currentCount = currentCounts[videoId] ?: 0
-        currentCounts[videoId] = currentCount + 1
-        _watchCounts.value = currentCounts
-
-        Log.d("MainViewModel", "Started watching video - instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
+        // Don't increment watch count here - we'll calculate it based on watch duration ratio
+        Log.d("MainViewModel", "Started viewing instance #$viewingInstanceCounter: $videoId")
     }
 
     /**
@@ -648,6 +638,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val currentVideo = _videos.value.find { it.id == videoId }
             currentVideo?.let { video ->
                 val watchDuration = System.currentTimeMillis() - currentVideoStartTime
+
+                // Calculate watch count using ratio approach - round up
+                val watchRatio = if (video.duration > 0) {
+                    watchDuration.toFloat() / video.duration.toFloat()
+                } else {
+                    0f
+                }
+                val watchCount = kotlin.math.ceil(watchRatio).toInt().coerceAtLeast(1) // At least 1 if they started watching
+
+                // Update the overall watch count for this video
+                val currentCounts = _watchCounts.value.toMutableMap()
+                val previousCount = currentCounts[videoId] ?: 0
+                currentCounts[videoId] = (previousCount + watchCount).coerceAtLeast(watchCount) // Take the maximum
+                _watchCounts.value = currentCounts
 
                 // Get the video number from the original video list (consistent across both CSVs)
                 val videoNumber = getVideoNumber(videoId)
@@ -661,7 +665,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     videoName = video.title,
                     videoDurationMs = video.duration,
                     watchDurationMs = watchDuration,
-                    watchCount = getWatchCount(videoId), // Add this line
+                    watchCount = currentCounts[videoId] ?: watchCount, // Use the updated total count
                     wasLiked = isVideoLiked(videoId),
                     wasShared = isVideoShared(videoId),
                     wasCommented = hasCommentedOnVideo(videoId),
@@ -673,11 +677,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 playByPlayEvents.add(playByPlayEvent)
 
-                var d = Log.d(
+                Log.d(
                     "MainViewModel", "Ended viewing instance #$viewingInstanceCounter: " +
                             "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
-                            "interruption: ${currentInterruption != null}, " +
-                            "time since last interruption: ${timeSinceLastInterruption}ms"
+                            "watch ratio: $watchRatio, watch count increment: $watchCount, " +
+                            "total watch count: ${currentCounts[videoId]}, " +
+                            "interruption: ${currentInterruption != null}"
                 )
 
                 // Also create the regular view event for backward compatibility
@@ -957,9 +962,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Implementation for opening user profile
     }
 
-    /**
-     * Modified loadVideosFromFolder to initialize numbering
-     */
     fun loadVideosFromFolder(folderName: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -980,7 +982,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isLoading.value = false
 
             if (randomizedVideos.isNotEmpty()) {
-                startVideoViewTracking(randomizedVideos.first().id)
+                startVideoViewTracking(randomizedVideos.first().id)  // Don't increment watch count here
             }
         }
     }

@@ -32,13 +32,13 @@ class DataExporter(private val context: Context) {
         swipeEvents: List<SwipeEvent>,
         swipeAnalytics: Map<String, SwipeAnalytics>,
         swipePatternPaths: Map<String, String>,
-        interruptionEvents: List<InterruptionEvent>, // Add interruption events parameter
-        viewModel: MainViewModel // Add viewModel to access watch counts
+        interruptionEvents: List<InterruptionEvent>,
+        viewModel: MainViewModel
     ): String = withContext(Dispatchers.IO) {
         try {
-            val timestamp = getTimestamp()
+            val dateOnly = getDateOnly()  // Get just the date
             val directory = getSessionDirectory(participantId, category)
-            val fileName = "session_data_${timestamp}.csv"
+            val fileName = "session_data_${participantId}_${dateOnly}.csv"  // New format
             val file = File(directory, fileName)
 
             FileWriter(file).use { writer ->
@@ -137,9 +137,9 @@ class DataExporter(private val context: Context) {
         playByPlayEvents: List<PlayByPlayEvent>
     ): String = withContext(Dispatchers.IO) {
         try {
-            val timestamp = getTimestamp()
+            val dateOnly = getDateOnly()  // Get just the date
             val directory = getSessionDirectory(participantId, category)
-            val fileName = "play_by_play_${timestamp}.csv"
+            val fileName = "play_by_play_${participantId}_${dateOnly}.csv"  // New format
             val file = File(directory, fileName)
 
             FileWriter(file).use { writer ->
@@ -365,5 +365,9 @@ class DataExporter(private val context: Context) {
 
     private fun getTimestamp(): String {
         return SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    }
+
+    private fun getDateOnly(): String {
+        return SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
     }
 }
