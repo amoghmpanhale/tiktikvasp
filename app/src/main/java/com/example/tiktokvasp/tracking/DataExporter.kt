@@ -143,10 +143,11 @@ class DataExporter(private val context: Context) {
             val file = File(directory, fileName)
 
             FileWriter(file).use { writer ->
-                // Write CSV header with watch count
+                // Write CSV header with meters-based swipe columns
                 writer.append("Participant ID,Video Number,Video Name,Video Duration(ms),")
                 writer.append("Watch Duration(ms),Watch Count,Liked?,Shared?,Commented?,")
-                writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms), Time Since Last Interruption(ms)\n")
+                writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms), Time Since Last Interruption(ms),")
+                writer.append("Exit Swipe Direction,Exit Swipe Velocity(m/s),Exit Swipe Acceleration(m/s²),Exit Swipe Distance(m)\n")
 
                 // Write each play-by-play event as a row
                 playByPlayEvents.forEach { event ->
@@ -162,11 +163,17 @@ class DataExporter(private val context: Context) {
                     writer.append("${if (event.interruptionOccurred) "Yes" else "No"},")
                     writer.append("${event.interruptionDurationMs},")
                     writer.append("${event.interruptionPointMs},")
-                    writer.append("${event.timeSinceLastInterruptionMs}\n")
+                    writer.append("${event.timeSinceLastInterruptionMs},")
+
+                    // Add swipe data in meters with appropriate precision
+                    writer.append("${event.exitSwipeDirection ?: ""},")
+                    writer.append("${event.exitSwipeVelocity?.let { String.format("%.4f", it) } ?: ""},")
+                    writer.append("${event.exitSwipeAcceleration?.let { String.format("%.4f", it) } ?: ""},")
+                    writer.append("${event.exitSwipeDistance?.let { String.format("%.4f", it) } ?: ""}\n")
                 }
             }
 
-            Log.d("DataExporter", "Exported play-by-play data with watch count to ${file.absolutePath}")
+            Log.d("DataExporter", "Exported play-by-play data with meter-based units to ${file.absolutePath}")
             return@withContext file.absolutePath
 
         } catch (e: Exception) {
@@ -174,7 +181,6 @@ class DataExporter(private val context: Context) {
             return@withContext ""
         }
     }
-
 
     /**
      * Export swipe events as before (keeping for backward compatibility)

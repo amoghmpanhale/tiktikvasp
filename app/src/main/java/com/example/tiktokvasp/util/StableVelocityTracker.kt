@@ -39,8 +39,9 @@ class StableVelocityTracker {
             velocitySamples.removeAt(0)
         }
 
-        velocityX = instantVelocityX.coerceIn(-3000f, 3000f)
-        velocityY = instantVelocityY.coerceIn(-3000f, 3000f)
+        // Remove the velocity capping - let actual velocities through
+        velocityX = instantVelocityX
+        velocityY = instantVelocityY
 
         lastX = x
         lastY = y

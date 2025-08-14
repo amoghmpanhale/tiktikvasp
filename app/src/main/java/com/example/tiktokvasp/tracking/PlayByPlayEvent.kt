@@ -16,5 +16,11 @@ data class PlayByPlayEvent(
     val interruptionOccurred: Boolean,  // Whether an interruption happened during this viewing
     val interruptionDurationMs: Long,   // Duration of interruption (0 if none)
     val interruptionPointMs: Long,      // Timestamp in video when interruption occurred (0 if none)
-    val timeSinceLastInterruptionMs: Long // Time elapsed since the last interruption ended (0 if first/none)
+    val timeSinceLastInterruptionMs: Long, // Time elapsed since the last interruption ended (0 if first/none)
+
+    // Swipe data for the swipe AFTER this video (null for last video if no swipe follows) - all in meters
+    val exitSwipeDirection: String?,    // Direction of swipe that ended this video view
+    val exitSwipeVelocity: Float?,      // Velocity in meters/second
+    val exitSwipeAcceleration: Float?, // Acceleration in m/s²
+    val exitSwipeDistance: Float?       // Swipe distance in meters
 )

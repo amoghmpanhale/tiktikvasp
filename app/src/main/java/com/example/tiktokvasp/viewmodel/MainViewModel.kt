@@ -24,6 +24,7 @@ import com.example.tiktokvasp.tracking.PlayByPlayEvent
 import kotlinx.coroutines.runBlocking
 import kotlin.random.Random
 import java.util.concurrent.TimeUnit
+import com.example.tiktokvasp.util.PhysicalUnitsConverter
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -146,12 +147,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _watchCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val watchCounts: StateFlow<Map<String, Int>> = _watchCounts.asStateFlow()
 
+    // Add these properties to MainViewModel class
+    private var pendingExitSwipe: SwipeEvent? = null
+    private var lastCompletedVideoId: String? = null
+
     // Track current session watch count (resets each viewing session)
     private var currentSessionWatchCount = 0
 
     // Add these properties to track actual watch time (excluding interruptions)
     private var totalInterruptionTimeForCurrentVideo = 0L
     private var currentInterruptionStartTime = 0L
+
+    // Add the physical units converter
+    private val physicalUnitsConverter = PhysicalUnitsConverter(application)
 
     // Data class to track interruption details for current video
     private data class InterruptionData(
@@ -484,13 +492,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Send the event to the behavior tracker
             behaviorTracker.trackDetailedSwipe(swipeEvent)
 
-            // Add this log statement:
             Log.d("MainViewModel", "trackDetailedSwipe: swipeEvent = $swipeEvent")
 
             // Analyze the swipe event
             val swipeAnalytics = analyticsService.analyzeSwipe(swipeEvent)
 
-            // Add this log statement:
             Log.d("MainViewModel", "trackDetailedSwipe: swipeAnalytics = $swipeAnalytics")
 
             // Store the swipe event and analytics
@@ -500,6 +506,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Update the last swipe event
             _lastSwipeEvent.value = swipeEvent
             swipeAnalyticsMap[swipeEvent.id] = swipeAnalytics
+
+            // Store this swipe as the pending exit swipe for the current video
+            pendingExitSwipe = swipeEvent
 
             // Generate PNG if auto-generation is enabled
             if (sessionManager?.isAutoGeneratePngsEnabled() == true) {
@@ -526,19 +535,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         "duration=${swipeEvent.swipeDurationMs}ms, " +
                         "points=${swipeEvent.path.size}"
             )
-
-            // For significant swipes, we'll end the current video view tracking
-            // and update the current video as needed based on the direction
-//            when (swipeEvent.direction) {
-//                SwipeDirection.UP, SwipeDirection.DOWN -> {
-//                    endVideoViewTracking()
-//                }
-//
-//                else -> { /* No action for horizontal swipes */
-//                }
-//            }
         }
     }
+
 
     fun onSwipeUp() {
         val videos = _videos.value
@@ -637,6 +636,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Log.d("MainViewModel", "Started viewing instance #$viewingInstanceCounter: $videoId (session watch count reset)")
     }
 
+
     /**
      * End the current video tracking and create a play-by-play event
      */
@@ -675,7 +675,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Use the time since last interruption that was calculated when the interruption started
                 val timeSinceLastInterruption = currentInterruption?.timeSinceLastInterruptionMs ?: 0L
 
-                // Create play-by-play event with actual watch duration (excluding interruptions)
+                // Get swipe data for the exit swipe (the swipe that occurred after this video)
+                val exitSwipeDirection = pendingExitSwipe?.direction?.toString()
+
+                // Convert swipe data to meters
+                val exitSwipeVelocity = pendingExitSwipe?.let {
+                    physicalUnitsConverter.velocityPxToMetersPerSecond(Math.abs(it.velocityY))
+                }
+                val exitSwipeAcceleration = pendingExitSwipe?.let { swipeEvent ->
+                    swipeAnalyticsMap[swipeEvent.id]?.acceleration?.let { accel ->
+                        physicalUnitsConverter.accelerationPxToMetersPerSecondSquared(accel)
+                    }
+                }
+                val exitSwipeDistance = pendingExitSwipe?.let {
+                    physicalUnitsConverter.pixelsToMeters(it.distance)
+                }
+
+                // Create play-by-play event with actual watch duration and swipe data
                 val playByPlayEvent = PlayByPlayEvent(
                     videoNumber = videoNumber,
                     videoName = video.title,
@@ -688,7 +704,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     interruptionOccurred = currentInterruption != null,
                     interruptionDurationMs = currentInterruption?.durationMs ?: 0L,
                     interruptionPointMs = currentInterruption?.videoTimeStamp ?: 0L,
-                    timeSinceLastInterruptionMs = timeSinceLastInterruption
+                    timeSinceLastInterruptionMs = timeSinceLastInterruption,
+
+                    // Add swipe data in meters
+                    exitSwipeDirection = exitSwipeDirection,
+                    exitSwipeVelocity = exitSwipeVelocity,
+                    exitSwipeAcceleration = exitSwipeAcceleration,
+                    exitSwipeDistance = exitSwipeDistance
                 )
 
                 playByPlayEvents.add(playByPlayEvent)
@@ -696,10 +718,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(
                     "MainViewModel", "Ended viewing session #$viewingInstanceCounter: " +
                             "Video #$videoNumber (${video.title}), " +
-                            "actual watch time ${actualWatchDuration}ms (excluded ${totalInterruptionTimeForCurrentVideo}ms interruptions), " +
+                            "actual watch time ${actualWatchDuration}ms, " +
                             "session watch count: $sessionWatchCount, " +
-                            "cumulative total: ${currentCounts[videoId]}, " +
-                            "interruption: ${currentInterruption != null}"
+                            "exit swipe: $exitSwipeDirection " +
+                            "(${exitSwipeVelocity?.let { String.format("%.3f", it) } ?: "N/A"} m/s, " +
+                            "${exitSwipeDistance?.let { String.format("%.3f", it) } ?: "N/A"} m)"
                 )
 
                 // Also create the regular view event for backward compatibility using actual watch time
@@ -709,6 +732,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     0f
                 }
                 behaviorTracker.trackVideoView(videoId, actualWatchDuration, watchPercentage)
+
+                // Clear the pending exit swipe since we've used it
+                pendingExitSwipe = null
+                lastCompletedVideoId = videoId
             }
         }
     }
