@@ -308,7 +308,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastInterruptionEndTime = 0L // Reset interruption timing
         sessionStartTime = System.currentTimeMillis() // Track session start time
 
-        // Rest of the method remains the same...
         configureRandomStops(randomStopsEnabled)
 
         sessionManager = SessionManager(
@@ -509,14 +508,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // For significant swipes, we'll end the current video view tracking
             // and update the current video as needed based on the direction
-            when (swipeEvent.direction) {
-                SwipeDirection.UP, SwipeDirection.DOWN -> {
-                    endVideoViewTracking()
-                }
-
-                else -> { /* No action for horizontal swipes */
-                }
-            }
+//            when (swipeEvent.direction) {
+//                SwipeDirection.UP, SwipeDirection.DOWN -> {
+//                    endVideoViewTracking()
+//                }
+//
+//                else -> { /* No action for horizontal swipes */
+//                }
+//            }
         }
     }
 
@@ -643,10 +642,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 playByPlayEvents.add(playByPlayEvent)
 
-                Log.d("MainViewModel", "Ended viewing instance #$viewingInstanceCounter: " +
-                        "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
-                        "interruption: ${currentInterruption != null}, " +
-                        "time since last interruption: ${timeSinceLastInterruption}ms")
+                var d = Log.d(
+                    "MainViewModel", "Ended viewing instance #$viewingInstanceCounter: " +
+                            "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
+                            "interruption: ${currentInterruption != null}, " +
+                            "time since last interruption: ${timeSinceLastInterruption}ms"
+                )
 
                 // Also create the regular view event for backward compatibility
                 val watchPercentage = if (video.duration > 0) {
@@ -742,7 +743,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startRandomStopTimer() {
         // Cancel any existing job
-        randomStopJob?.cancel()
+//        randomStopJob?.cancel()
 
         // Start a new coroutine for random stops
         randomStopJob = viewModelScope.launch {

@@ -76,46 +76,39 @@ class DataExporter(private val context: Context) {
                     val interruptionOccurred = if (interruption != null) "1" else "0"
                     val interruptionDuration = interruption?.durationMs?.toString() ?: "0"
 
-                    // If there are no views or swipes, still record the video with empty data
-                    if (views.isEmpty() && relevantSwipes.isEmpty()) {
+                    // Process each view event
+                    views.forEach { view ->
+                        // Find the swipe that ended this view
+                        val exitSwipe = swipeEvents
+                            .filter { it.videoId == view.videoId && it.timestamp >= view.timestamp + view.watchDurationMs }
+                            .minByOrNull { it.timestamp }
+
+                        // Get swipe analytics if available
+                        val analytics = exitSwipe?.let { swipeAnalytics[it.id] }
+
+                        // Get swipe pattern path if available
+                        val patternPath = exitSwipe?.let { swipePatternPaths[it.id] } ?: ""
+
+                        // Get like, share and comment status from the view event
+                        val isLiked = if (view.isLiked) "Yes" else "No"
+                        val isShared = if (view.isShared) "Yes" else "No"
+                        val hasCommented = if (view.hasCommented) "Yes" else "No"
+
+                        // Write the row with interruption data
                         writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
-                        writer.append("0,0,No,No,No,,,0,0,0,")
-                        writer.append("$interruptionOccurred,$interruptionDuration\n") // Add interruption data
-                    } else {
-                        // Process each view event
-                        views.forEach { view ->
-                            // Find the swipe that ended this view
-                            val exitSwipe = swipeEvents
-                                .filter { it.videoId == view.videoId && it.timestamp >= view.timestamp + view.watchDurationMs }
-                                .minByOrNull { it.timestamp }
+                        writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,$hasCommented,")
 
-                            // Get swipe analytics if available
-                            val analytics = exitSwipe?.let { swipeAnalytics[it.id] }
-
-                            // Get swipe pattern path if available
-                            val patternPath = exitSwipe?.let { swipePatternPaths[it.id] } ?: ""
-
-                            // Get like, share and comment status from the view event
-                            val isLiked = if (view.isLiked) "Yes" else "No"
-                            val isShared = if (view.isShared) "Yes" else "No"
-                            val hasCommented = if (view.hasCommented) "Yes" else "No"
-
-                            // Write the row with interruption data
-                            writer.append("$participantId,$category,$videoNumber,\"$videoName\",$videoDuration,")
-                            writer.append("${view.watchDurationMs},${view.watchPercentage},$isLiked,$isShared,$hasCommented,")
-
-                            if (exitSwipe != null && analytics != null) {
-                                writer.append("\"$patternPath\",${exitSwipe.direction},")
-                                writer.append("${abs(exitSwipe.velocityY).toInt()},")
-                                writer.append("${analytics.acceleration.toInt()},")
-                                writer.append("${(analytics.speedConsistency * 100).toInt()},")
-                            } else {
-                                writer.append(",,0,0,0,")
-                            }
-
-                            // Add interruption data at the end
-                            writer.append("$interruptionOccurred,$interruptionDuration\n")
+                        if (exitSwipe != null && analytics != null) {
+                            writer.append("\"$patternPath\",${exitSwipe.direction},")
+                            writer.append("${abs(exitSwipe.velocityY).toInt()},")
+                            writer.append("${analytics.acceleration.toInt()},")
+                            writer.append("${(analytics.speedConsistency * 100).toInt()},")
+                        } else {
+                            writer.append(",,0,0,0,")
                         }
+
+                        // Add interruption data at the end
+                        writer.append("$interruptionOccurred,$interruptionDuration\n")
                     }
                 }
             }
