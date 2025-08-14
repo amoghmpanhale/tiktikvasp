@@ -258,32 +258,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadVideos()
     }
 
-    /**
-     * Modified loadVideos to initialize numbering
-     */
     private fun loadVideos() {
         viewModelScope.launch {
             _isLoading.value = true
             val localVideos = repository.getLocalVideos()
 
-            // Store original videos
             _originalVideos.clear()
             _originalVideos.addAll(localVideos)
 
-            // Initialize consistent video numbering
             initializeVideoNumbering(localVideos)
 
-            // Randomize and set the videos
             val randomizedVideos = localVideos.shuffled()
             _videos.value = randomizedVideos
 
             _isLoading.value = false
 
             if (randomizedVideos.isNotEmpty()) {
-                startVideoViewTracking(randomizedVideos.first().id)
+                startVideoViewTracking(randomizedVideos.first().id)  // This will count as first watch
             }
         }
     }
+    
 
     fun setParticipantId(id: String) {
         _participantId.value = id
@@ -454,6 +449,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Track when a video is rewatched (looped) without swiping
+     */
+    fun trackVideoRewatch(videoId: String) {
+        // Only track if this is the current video (prevent stale callbacks)
+        if (videoId == currentVideoId && _isSessionActive.value) {
+            // End the current viewing session
+            endCurrentVideoTracking()
+
+            // Start a new viewing session for the same video
+            currentVideoStartTime = System.currentTimeMillis()
+            viewingInstanceCounter++
+            currentInterruption = null
+
+            // ALWAYS increment watch count when starting to watch (even rewatches)
+            val currentCounts = _watchCounts.value.toMutableMap()
+            val currentCount = currentCounts[videoId] ?: 0
+            currentCounts[videoId] = currentCount + 1
+            _watchCounts.value = currentCounts
+
+            Log.d("MainViewModel", "Video rewatched without swiping - instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
+        }
+    }
+
+    /**
      * Expose the behavior tracker for debugging purposes
      */
     fun getBehaviorTracker(): UserBehaviorTracker {
@@ -612,13 +631,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentInterruption = null
         _isPlaying.value = true
 
-        // Increment watch count for this video
+        // ALWAYS increment watch count when starting to watch a video
         val currentCounts = _watchCounts.value.toMutableMap()
         val currentCount = currentCounts[videoId] ?: 0
         currentCounts[videoId] = currentCount + 1
         _watchCounts.value = currentCounts
 
-        Log.d("MainViewModel", "Started tracking viewing instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
+        Log.d("MainViewModel", "Started watching video - instance #$viewingInstanceCounter: $videoId (watch count: ${currentCount + 1})")
     }
 
     /**
@@ -900,11 +919,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun incrementVideoWatchCount(videoId: String) {
-        viewModelScope.launch {
-            repository.incrementVideoWatchCount(videoId)
-        }
-    }
+//    fun incrementVideoWatchCount(videoId: String) {
+//        viewModelScope.launch {
+//            repository.incrementVideoWatchCount(videoId)
+//        }
+//    }
 
     fun likeVideo(videoId: String) {
         // Track the like in the behavior tracker

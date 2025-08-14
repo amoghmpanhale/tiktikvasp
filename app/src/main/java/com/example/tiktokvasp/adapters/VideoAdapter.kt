@@ -103,9 +103,9 @@ class VideoAdapter(
     }
 
     fun updateWatchCount(position: Int) {
-        if (position >= 0 && position < videos.size) {
-            viewModel.incrementVideoWatchCount(videos[position].id)
-        }
+//        if (position >= 0 && position < videos.size) {
+//            viewModel.incrementVideoWatchCount(videos[position].id)
+//        }
     }
 
     // Release all ExoPlayer instances to free resources and stop playback
@@ -346,6 +346,9 @@ class VideoAdapter(
                             }
                             Player.STATE_ENDED -> {
                                 Log.d("VideoAdapter", "Player STATE_ENDED")
+                                // Video ended and will restart due to REPEAT_MODE_ONE
+                                // Track this as a rewatch of the same video
+                                viewModel.trackVideoRewatch(videoId)
                             }
                             Player.STATE_IDLE -> {
                                 Log.d("VideoAdapter", "Player STATE_IDLE")
