@@ -142,9 +142,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var lastInterruptionEndTime: Long = 0L
     private var sessionStartTime: Long = 0L
 
-    // Track watch counts per video
+    // Track watch counts per video (cumulative for UI purposes)
     private val _watchCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val watchCounts: StateFlow<Map<String, Int>> = _watchCounts.asStateFlow()
+
+    // Track current session watch count (resets each viewing session)
+    private var currentSessionWatchCount = 0
 
     // Data class to track interruption details for current video
     private data class InterruptionData(
@@ -454,18 +457,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun trackVideoRewatch(videoId: String) {
         // Only track if this is the current video (prevent stale callbacks)
         if (videoId == currentVideoId && _isSessionActive.value) {
-            // End the current viewing session
-            endCurrentVideoTracking()
+            // Increment the session watch count
+            currentSessionWatchCount++
 
-            // Start a new viewing session for the same video
-            currentVideoStartTime = System.currentTimeMillis()
-            viewingInstanceCounter++
-            currentInterruption = null
-
-            // Don't increment watch count here - we'll calculate it based on watch duration ratio
-            Log.d("MainViewModel", "Video rewatched without swiping - instance #$viewingInstanceCounter: $videoId")
+            Log.d("MainViewModel", "Video rewatched in same session - session watch count now: ${currentSessionWatchCount + 1} for video: $videoId")
         }
     }
+
 
     /**
      * Expose the behavior tracker for debugging purposes
@@ -622,13 +620,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         videoViewStartTime = System.currentTimeMillis()
         currentVideoStartTime = System.currentTimeMillis()
         currentVideoId = videoId
-        viewingInstanceCounter++  // This tracks viewing instances
+        viewingInstanceCounter++
         currentInterruption = null
+        currentSessionWatchCount = 0  // Reset session watch count for new video
         _isPlaying.value = true
 
-        // Don't increment watch count here - we'll calculate it based on watch duration ratio
-        Log.d("MainViewModel", "Started viewing instance #$viewingInstanceCounter: $videoId")
+        Log.d("MainViewModel", "Started viewing instance #$viewingInstanceCounter: $videoId (session watch count reset)")
     }
+
 
     /**
      * End the current video tracking and create a play-by-play event
@@ -639,33 +638,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             currentVideo?.let { video ->
                 val watchDuration = System.currentTimeMillis() - currentVideoStartTime
 
-                // Calculate watch count using ratio approach - round up
+                // Calculate watch count using ratio approach for this session only
                 val watchRatio = if (video.duration > 0) {
                     watchDuration.toFloat() / video.duration.toFloat()
                 } else {
                     0f
                 }
-                val watchCount = kotlin.math.ceil(watchRatio).toInt().coerceAtLeast(1) // At least 1 if they started watching
+                val baseWatchCount = kotlin.math.ceil(watchRatio).toInt().coerceAtLeast(1)
 
-                // Update the overall watch count for this video
+                // Add any rewatch count from this session
+                val sessionWatchCount = baseWatchCount + currentSessionWatchCount
+
+                // Update cumulative watch count for UI (optional - for display purposes)
                 val currentCounts = _watchCounts.value.toMutableMap()
                 val previousCount = currentCounts[videoId] ?: 0
-                currentCounts[videoId] = (previousCount + watchCount).coerceAtLeast(watchCount) // Take the maximum
+                currentCounts[videoId] = previousCount + sessionWatchCount
                 _watchCounts.value = currentCounts
 
-                // Get the video number from the original video list (consistent across both CSVs)
+                // Get the video number from the original video list
                 val videoNumber = getVideoNumber(videoId)
 
                 // Use the time since last interruption that was calculated when the interruption started
                 val timeSinceLastInterruption = currentInterruption?.timeSinceLastInterruptionMs ?: 0L
 
-                // Create play-by-play event
+                // Create play-by-play event with THIS SESSION'S watch count only
                 val playByPlayEvent = PlayByPlayEvent(
                     videoNumber = videoNumber,
                     videoName = video.title,
                     videoDurationMs = video.duration,
                     watchDurationMs = watchDuration,
-                    watchCount = currentCounts[videoId] ?: watchCount, // Use the updated total count
+                    watchCount = sessionWatchCount, // This is the key change - use session count, not cumulative
                     wasLiked = isVideoLiked(videoId),
                     wasShared = isVideoShared(videoId),
                     wasCommented = hasCommentedOnVideo(videoId),
@@ -678,10 +680,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 playByPlayEvents.add(playByPlayEvent)
 
                 Log.d(
-                    "MainViewModel", "Ended viewing instance #$viewingInstanceCounter: " +
+                    "MainViewModel", "Ended viewing session #$viewingInstanceCounter: " +
                             "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
-                            "watch ratio: $watchRatio, watch count increment: $watchCount, " +
-                            "total watch count: ${currentCounts[videoId]}, " +
+                            "session watch count: $sessionWatchCount, " +
+                            "cumulative total: ${currentCounts[videoId]}, " +
                             "interruption: ${currentInterruption != null}"
                 )
 
@@ -695,6 +697,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
 
     /**
      * Get the consistent video number for a video ID
@@ -1032,7 +1035,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Get watch count for a video
+     * Get watch count for a video (cumulative across all sessions)
      */
     fun getWatchCount(videoId: String): Int {
         return _watchCounts.value[videoId] ?: 0
