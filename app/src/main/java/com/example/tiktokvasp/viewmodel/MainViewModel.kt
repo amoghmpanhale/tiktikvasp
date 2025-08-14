@@ -149,6 +149,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Track current session watch count (resets each viewing session)
     private var currentSessionWatchCount = 0
 
+    // Add these properties to track actual watch time (excluding interruptions)
+    private var totalInterruptionTimeForCurrentVideo = 0L
+    private var currentInterruptionStartTime = 0L
+
     // Data class to track interruption details for current video
     private data class InterruptionData(
         val startTime: Long,        // When interruption started (system time)
@@ -623,11 +627,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewingInstanceCounter++
         currentInterruption = null
         currentSessionWatchCount = 0  // Reset session watch count for new video
+
+        // Reset interruption tracking for new video
+        totalInterruptionTimeForCurrentVideo = 0L
+        currentInterruptionStartTime = 0L
+
         _isPlaying.value = true
 
         Log.d("MainViewModel", "Started viewing instance #$viewingInstanceCounter: $videoId (session watch count reset)")
     }
-
 
     /**
      * End the current video tracking and create a play-by-play event
@@ -636,11 +644,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentVideoId?.let { videoId ->
             val currentVideo = _videos.value.find { it.id == videoId }
             currentVideo?.let { video ->
-                val watchDuration = System.currentTimeMillis() - currentVideoStartTime
+                // Calculate actual watch duration excluding interruptions
+                val totalElapsedTime = System.currentTimeMillis() - currentVideoStartTime
+                val actualWatchDuration = totalElapsedTime - totalInterruptionTimeForCurrentVideo
 
-                // Calculate watch count using ratio approach for this session only
+                Log.d("MainViewModel", "Video tracking end: Total elapsed: ${totalElapsedTime}ms, " +
+                        "Interruption time: ${totalInterruptionTimeForCurrentVideo}ms, " +
+                        "Actual watch time: ${actualWatchDuration}ms")
+
+                // Calculate watch count using actual watch duration (not including interruptions)
                 val watchRatio = if (video.duration > 0) {
-                    watchDuration.toFloat() / video.duration.toFloat()
+                    actualWatchDuration.toFloat() / video.duration.toFloat()
                 } else {
                     0f
                 }
@@ -661,13 +675,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Use the time since last interruption that was calculated when the interruption started
                 val timeSinceLastInterruption = currentInterruption?.timeSinceLastInterruptionMs ?: 0L
 
-                // Create play-by-play event with THIS SESSION'S watch count only
+                // Create play-by-play event with actual watch duration (excluding interruptions)
                 val playByPlayEvent = PlayByPlayEvent(
                     videoNumber = videoNumber,
                     videoName = video.title,
                     videoDurationMs = video.duration,
-                    watchDurationMs = watchDuration,
-                    watchCount = sessionWatchCount, // This is the key change - use session count, not cumulative
+                    watchDurationMs = actualWatchDuration, // This now excludes interruption time
+                    watchCount = sessionWatchCount,
                     wasLiked = isVideoLiked(videoId),
                     wasShared = isVideoShared(videoId),
                     wasCommented = hasCommentedOnVideo(videoId),
@@ -681,19 +695,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 Log.d(
                     "MainViewModel", "Ended viewing session #$viewingInstanceCounter: " +
-                            "Video #$videoNumber (${video.title}), watched ${watchDuration}ms, " +
+                            "Video #$videoNumber (${video.title}), " +
+                            "actual watch time ${actualWatchDuration}ms (excluded ${totalInterruptionTimeForCurrentVideo}ms interruptions), " +
                             "session watch count: $sessionWatchCount, " +
                             "cumulative total: ${currentCounts[videoId]}, " +
                             "interruption: ${currentInterruption != null}"
                 )
 
-                // Also create the regular view event for backward compatibility
+                // Also create the regular view event for backward compatibility using actual watch time
                 val watchPercentage = if (video.duration > 0) {
-                    watchDuration / video.duration.toFloat()
+                    actualWatchDuration / video.duration.toFloat()
                 } else {
                     0f
                 }
-                behaviorTracker.trackVideoView(videoId, watchDuration, watchPercentage)
+                behaviorTracker.trackVideoView(videoId, actualWatchDuration, watchPercentage)
             }
         }
     }
@@ -863,12 +878,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // Calculate when in the current video the interruption occurred
             val videoTimeStamp = if (currentVideoStartTime > 0) {
-                System.currentTimeMillis() - currentVideoStartTime
+                System.currentTimeMillis() - currentVideoStartTime - totalInterruptionTimeForCurrentVideo
             } else {
                 0L
             }
 
             val interruptionStartTime = System.currentTimeMillis()
+            currentInterruptionStartTime = interruptionStartTime // Track for duration calculation
 
             // Calculate time since last interruption END to current interruption START
             val timeSinceLastInterruption = if (lastInterruptionEndTime > 0) {
@@ -914,12 +930,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Resume playback - videos should always be playing
             _isPlaying.value = true
 
+            // Add the interruption time to our total for this video
+            val actualInterruptionDuration = System.currentTimeMillis() - currentInterruptionStartTime
+            totalInterruptionTimeForCurrentVideo += actualInterruptionDuration
+
             // Update the last interruption end time
             lastInterruptionEndTime = System.currentTimeMillis()
 
-            Log.d("MainViewModel", "Random stop completed after ${stopDuration}ms, ended at: $lastInterruptionEndTime")
+            Log.d("MainViewModel", "Random stop completed after ${actualInterruptionDuration}ms, total interruption time for video: ${totalInterruptionTimeForCurrentVideo}ms")
         }
     }
+
 
     fun likeCurrentVideo() {
         currentVideoId?.let { videoId ->
