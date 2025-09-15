@@ -161,6 +161,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Add the physical units converter
     private val physicalUnitsConverter = PhysicalUnitsConverter(application)
 
+    // Count each swipe number for indexing
+    var swipeCount: Int = 2
+
     // Data class to track interruption details for current video
     private data class InterruptionData(
         val startTime: Long,        // When interruption started (system time)
@@ -453,7 +456,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val event = behaviorTracker.getSwipeEvents().find { it.id == swipeId }
             event?.let {
                 sessionManager?.let { manager ->
-                    val path = manager.generateSwipePatternPng(it)
+                    val path = manager.generateSwipePatternPng(it, swipeCount)
+                    swipeCount++
                     if (path.isNotEmpty()) {
                         swipePatternPaths[swipeId] = path
                         _exportStatus.value = "Generated swipe pattern: $path"
@@ -512,7 +516,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             // Generate PNG if auto-generation is enabled
             if (sessionManager?.isAutoGeneratePngsEnabled() == true) {
-                val path = sessionManager?.generateSwipePatternPng(swipeEvent)
+                val path = sessionManager?.generateSwipePatternPng(swipeEvent, swipeCount)
+                swipeCount++
                 if (!path.isNullOrEmpty()) {
                     swipePatternPaths[swipeEvent.id] = path
                 }
@@ -663,6 +668,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Add any rewatch count from this session
                 val sessionWatchCount = baseWatchCount + currentSessionWatchCount
 
+                // Calculate watch percentage (can exceed 1.0 if video was rewatched)
+                val watchPercentage = if (video.duration > 0) {
+                    actualWatchDuration.toFloat() / video.duration.toFloat()
+                } else {
+                    0f
+                }
+
                 // Update cumulative watch count for UI (optional - for display purposes)
                 val currentCounts = _watchCounts.value.toMutableMap()
                 val previousCount = currentCounts[videoId] ?: 0
@@ -691,12 +703,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     physicalUnitsConverter.pixelsToMeters(it.distance)
                 }
 
-                // Create play-by-play event with actual watch duration and swipe data
+                // Create play-by-play event with actual watch duration, watch percentage, and swipe data
                 val playByPlayEvent = PlayByPlayEvent(
                     videoNumber = videoNumber,
                     videoName = video.title,
                     videoDurationMs = video.duration,
                     watchDurationMs = actualWatchDuration, // This now excludes interruption time
+                    watchPercentage = watchPercentage, // Add the watch percentage
                     watchCount = sessionWatchCount,
                     wasLiked = isVideoLiked(videoId),
                     wasShared = isVideoShared(videoId),
@@ -719,6 +732,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     "MainViewModel", "Ended viewing session #$viewingInstanceCounter: " +
                             "Video #$videoNumber (${video.title}), " +
                             "actual watch time ${actualWatchDuration}ms, " +
+                            "watch percentage: ${String.format("%.3f", watchPercentage)}, " +
                             "session watch count: $sessionWatchCount, " +
                             "exit swipe: $exitSwipeDirection " +
                             "(${exitSwipeVelocity?.let { String.format("%.3f", it) } ?: "N/A"} m/s, " +
@@ -726,12 +740,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 // Also create the regular view event for backward compatibility using actual watch time
-                val watchPercentage = if (video.duration > 0) {
+                val watchPercentageForViewEvent = if (video.duration > 0) {
                     actualWatchDuration / video.duration.toFloat()
                 } else {
                     0f
                 }
-                behaviorTracker.trackVideoView(videoId, actualWatchDuration, watchPercentage)
+                behaviorTracker.trackVideoView(videoId, actualWatchDuration, watchPercentageForViewEvent)
 
                 // Clear the pending exit swipe since we've used it
                 pendingExitSwipe = null

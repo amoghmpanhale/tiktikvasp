@@ -128,7 +128,7 @@ class SessionManager(
      * Generate PNG image of a swipe pattern
      * Returns the file path of the generated image
      */
-    suspend fun generateSwipePatternPng(swipeEvent: SwipeEvent): String = withContext(Dispatchers.IO) {
+    suspend fun generateSwipePatternPng(swipeEvent: SwipeEvent, swipeCount: Int): String = withContext(Dispatchers.IO) {
         try {
             // Create directory if it doesn't exist
             val directory = File(
@@ -142,7 +142,7 @@ class SessionManager(
 
             // Create a timestamp for the filename
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
-            val fileName = "swipe_${swipeEvent.direction}_${timestamp}.png"
+            val fileName = "${swipeCount}_swipe_${swipeEvent.direction}_${timestamp}.png"
             val file = File(directory, fileName)
 
             // Create a bitmap for the swipe pattern

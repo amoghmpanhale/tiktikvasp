@@ -143,9 +143,9 @@ class DataExporter(private val context: Context) {
             val file = File(directory, fileName)
 
             FileWriter(file).use { writer ->
-                // Write CSV header with meters-based swipe columns
+                // Write CSV header with watch percentage column added
                 writer.append("Participant ID,Video Number,Video Name,Video Duration(ms),")
-                writer.append("Watch Duration(ms),Watch Count,Liked?,Shared?,Commented?,")
+                writer.append("Watch Duration(ms),Watch Percentage,Watch Count,Liked?,Shared?,Commented?,")
                 writer.append("Interruption Occurred,Interruption Duration(ms),Interruption Point(ms), Time Since Last Interruption(ms),")
                 writer.append("Exit Swipe Direction,Exit Swipe Velocity(m/s),Exit Swipe Acceleration(m/s²),Exit Swipe Distance(m)\n")
 
@@ -156,6 +156,7 @@ class DataExporter(private val context: Context) {
                     writer.append("\"${event.videoName}\",")
                     writer.append("${event.videoDurationMs},")
                     writer.append("${event.watchDurationMs},")
+                    writer.append("${String.format("%.3f", event.watchPercentage)},") // Format to 3 decimal places
                     writer.append("${event.watchCount},")
                     writer.append("${if (event.wasLiked) "Yes" else "No"},")
                     writer.append("${if (event.wasShared) "Yes" else "No"},")
@@ -173,7 +174,7 @@ class DataExporter(private val context: Context) {
                 }
             }
 
-            Log.d("DataExporter", "Exported play-by-play data with meter-based units to ${file.absolutePath}")
+            Log.d("DataExporter", "Exported play-by-play data with watch percentage to ${file.absolutePath}")
             return@withContext file.absolutePath
 
         } catch (e: Exception) {

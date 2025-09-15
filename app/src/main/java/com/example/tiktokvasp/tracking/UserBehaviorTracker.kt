@@ -208,6 +208,7 @@ enum class SwipeDirection {
 data class SwipeEvent(
     val id: String,
     val sessionId: String,
+    val count: Int = 0,
     val timestamp: Long,
     val videoId: String,
     val direction: SwipeDirection,
